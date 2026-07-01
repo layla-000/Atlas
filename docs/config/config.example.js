@@ -37,7 +37,7 @@ window.AtlasConfig = {
         exchangeRateApiKey: "",
         openAiApiKey: "",
         geminiApiKey: ""
-    }
+    },
 backend: {
     uploadEndpoint: ""
 }
