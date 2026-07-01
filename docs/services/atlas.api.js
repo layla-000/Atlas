@@ -54,9 +54,23 @@ window.AtlasAPI = (() => {
     const data = await request("memory", fallback);
     return data.records || [];
   }
+async function getTravelStatus() {
+  const fallback = {
+    success: true,
+    status: {
+      status: "demo",
+      title: "Travel Status",
+      summary: "Atlas Travel Status 연결을 준비하고 있어요.",
+      items: []
+    }
+  };
 
+  const data = await request("status", fallback);
+  return data.status || fallback.status;
+}
   return {
     getBrief,
-    getMemory
+    getMemory,
+    getTravelStatus
   };
 })();

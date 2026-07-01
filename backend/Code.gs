@@ -60,7 +60,12 @@ function testGetAtlasMemorySnapshots() {
 }
 function doGet(e) {
   const action = e && e.parameter ? e.parameter.action : null;
-
+if (action === "status") {
+  return createJsonResponse({
+    success: true,
+    status: generateTravelStatus()
+  });
+}
   if (action === "memory") {
     return createJsonResponse({
       success: true,
