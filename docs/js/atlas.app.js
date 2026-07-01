@@ -14,20 +14,21 @@ const Atlas = (() => {
 
     async function initialize() {
 
-        console.log("Atlas initializing...");
+    console.log("Atlas initializing...");
 
-        render();
+    render();
 
-        bindEvents();
+    bindEvents();
 
-        await initializeMap();
+    await initializeMap();
 
-        STATE.initialized = true;
+    AtlasCapture.initialize();
 
-        console.log("Atlas ready.");
+    STATE.initialized = true;
 
-    }
+    console.log("Atlas ready.");
 
+}
 
 
     function render() {
