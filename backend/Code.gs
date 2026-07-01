@@ -29,7 +29,12 @@ function createJsonResponse(data) {
 }
 function doGet(e) {
   const action = e && e.parameter ? e.parameter.action : null;
-
+if (action === "brief") {
+  return createJsonResponse({
+    success: true,
+    brief: getLatestAtlasBrief()
+  });
+}
   if (action === "inbox") {
     return createJsonResponse({
       success: true,
