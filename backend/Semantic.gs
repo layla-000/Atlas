@@ -1,11 +1,14 @@
 function runAtlasSemanticOnce() {
-  const parserResult = runAtlasParserOnce();
+  const record = getLatestParsedInboxRecord();
 
-  if (!parserResult || !parserResult.record) {
-    return parserResult;
+  if (!record) {
+    return {
+      success: true,
+      message: "Semantic 처리할 Parser 완료 문서가 없어요.",
+      record: null
+    };
   }
 
-  const record = parserResult.record;
   const parsed = record.result && record.result.parsed
     ? record.result.parsed
     : record.parsed;
@@ -20,26 +23,26 @@ function runAtlasSemanticOnce() {
 
   const semantic = extractSemanticMemory(parsed, record);
 
-const semanticReady = updateInboxRecordStatus(record.id, {
-  semanticStatus: "completed",
-  semantic: semantic,
-  memoryStatus: "semantic_ready"
-});
+  const semanticReady = updateInboxRecordStatus(record.id, {
+    semanticStatus: "completed",
+    semantic: semantic,
+    memoryStatus: "semantic_ready"
+  });
 
-const notionResult = syncSemanticMemoryToNotion(semanticReady);
+  const notionResult = syncSemanticMemoryToNotion(semanticReady);
 
-const notionUpdated = updateInboxRecordStatus(record.id, {
-  notionStatus: notionResult.notionStatus,
-  notion: notionResult,
-  memoryStatus: notionResult.notionStatus === "completed" ? "notion_synced" : "semantic_ready"
-});
+  const notionUpdated = updateInboxRecordStatus(record.id, {
+    notionStatus: notionResult.notionStatus,
+    notion: notionResult,
+    memoryStatus: notionResult.notionStatus === "completed" ? "notion_synced" : "semantic_ready"
+  });
 
-const memoryResult = buildAtlasMemorySnapshot(notionUpdated);
+  const memoryResult = buildAtlasMemorySnapshot(notionUpdated);
 
-const updated = updateInboxRecordStatus(record.id, {
-  memoryStatus: memoryResult.memoryStatus,
-  memory: memoryResult
-});
+  const updated = updateInboxRecordStatus(record.id, {
+    memoryStatus: memoryResult.memoryStatus,
+    memory: memoryResult
+  });
 
   return {
     success: true,

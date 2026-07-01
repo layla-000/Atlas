@@ -87,3 +87,14 @@ function doGet(e) {
     message: "Atlas backend is running."
   });
 }
+function testGenerateAtlasBrief() {
+  const result = generateAtlasBrief();
+  console.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+function testGetLatestAtlasBrief() {
+  const result = getLatestAtlasBrief();
+  console.log(JSON.stringify(result, null, 2));
+  return result;
+}

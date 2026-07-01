@@ -145,3 +145,19 @@ function getInboxIndex_() {
 function createAtlasInboxId() {
   return "inbox_" + Utilities.getUuid();
 }
+function getLatestParsedInboxRecord() {
+  const records = getAtlasInboxRecords(50);
+
+  for (let i = 0; i < records.length; i++) {
+    if (
+      records[i].status === "completed" &&
+      records[i].parserStatus === "completed" &&
+      records[i].result &&
+      records[i].result.parsed
+    ) {
+      return records[i];
+    }
+  }
+
+  return null;
+}
