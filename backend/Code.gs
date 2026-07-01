@@ -55,3 +55,6 @@ function testRunParserOnce() {
 function testRunSemanticOnce() {
   return runAtlasSemanticOnce();
 }
+function testGetAtlasMemorySnapshots() {
+  return getAtlasMemorySnapshots(20);
+}

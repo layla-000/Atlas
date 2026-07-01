@@ -28,10 +28,17 @@ const semanticReady = updateInboxRecordStatus(record.id, {
 
 const notionResult = syncSemanticMemoryToNotion(semanticReady);
 
-const updated = updateInboxRecordStatus(record.id, {
+const notionUpdated = updateInboxRecordStatus(record.id, {
   notionStatus: notionResult.notionStatus,
   notion: notionResult,
   memoryStatus: notionResult.notionStatus === "completed" ? "notion_synced" : "semantic_ready"
+});
+
+const memoryResult = buildAtlasMemorySnapshot(notionUpdated);
+
+const updated = updateInboxRecordStatus(record.id, {
+  memoryStatus: memoryResult.memoryStatus,
+  memory: memoryResult
 });
 
   return {
