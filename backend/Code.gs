@@ -22,57 +22,29 @@ function doPost(e) {
   }
 }
 
-function createJsonResponse(data) {
-  return ContentService
-    .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function testRunParserOnce() {
-  return runAtlasParserOnce();
-}
-function testRunSemanticOnce() {
-  return runAtlasSemanticOnce();
-}
-function testGetAtlasMemorySnapshots() {
-  return getAtlasMemorySnapshots(20);
-}
 function doGet(e) {
   const action = e && e.parameter ? e.parameter.action : null;
 
-  if (action === "brief") {
-    return createJsonResponse({
-      success: true,
-      brief: getLatestAtlasBrief()
-    });
-  }
+  const routes = {
+    brief: function() {
+      return { success: true, brief: getLatestAtlasBrief() };
+    },
+    status: function() {
+      return { success: true, status: generateTravelStatus() };
+    },
+    memory: function() {
+      return { success: true, records: getAtlasMemorySnapshots(20) };
+    },
+    inbox: function() {
+      return { success: true, records: getAtlasInboxRecords(20) };
+    },
+    queue: function() {
+      return { success: true, records: getQueuedInboxRecords(20) };
+    }
+  };
 
-  if (action === "status") {
-    return createJsonResponse({
-      success: true,
-      status: generateTravelStatus()
-    });
-  }
-
-  if (action === "memory") {
-    return createJsonResponse({
-      success: true,
-      records: getAtlasMemorySnapshots(20)
-    });
-  }
-
-  if (action === "inbox") {
-    return createJsonResponse({
-      success: true,
-      records: getAtlasInboxRecords(20)
-    });
-  }
-
-  if (action === "queue") {
-    return createJsonResponse({
-      success: true,
-      records: getQueuedInboxRecords(20)
-    });
+  if (action && routes[action]) {
+    return createJsonResponse(routes[action]());
   }
 
   return createJsonResponse({
@@ -80,14 +52,9 @@ function doGet(e) {
     message: "Atlas backend is running."
   });
 }
-function testGenerateAtlasBrief() {
-  const result = generateAtlasBrief();
-  console.log(JSON.stringify(result, null, 2));
-  return result;
-}
 
-function testGetLatestAtlasBrief() {
-  const result = getLatestAtlasBrief();
-  console.log(JSON.stringify(result, null, 2));
-  return result;
+function createJsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
