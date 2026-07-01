@@ -15,11 +15,13 @@ const AtlasMaps = (() => {
         places: [],
         isReady: false
     };
+        function getApiKey() {
+    if (!window.AtlasConfig || !window.AtlasConfig.maps) {
+        return null;
+    }
 
-    function getApiKey() {
-        if (!window.AtlasConfig || !window.AtlasConfig.googleMapsApiKey) {
-            return null;
-        }
+    return window.AtlasConfig.maps.apiKey;
+}
 
         return window.AtlasConfig.googleMapsApiKey;
     }

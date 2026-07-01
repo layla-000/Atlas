@@ -316,4 +316,12 @@ button {
     .atlas-actions-grid {
         grid-template-columns: 1fr;
     }
+    
+    #google-map {
+    width: 100%;
+    min-height: 520px;
+    height: 520px;
+    border-radius: var(--atlas-radius-md);
+    overflow: hidden;
+}
 }
