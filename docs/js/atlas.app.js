@@ -106,11 +106,11 @@ AtlasCapture.initialize();
     }
 
 async function refreshAtlasBrief() {
-  if (!window.AtlasBrief) {
+  if (!window.AtlasAPI) {
     return;
   }
 
-  const brief = await AtlasBrief.fetchBrief();
+  const brief = await AtlasAPI.getBrief();
   const actions = brief.actions && brief.actions.length > 0
     ? `<ul>${brief.actions.slice(0, 3).map((action) => `<li>${action}</li>`).join("")}</ul>`
     : "";
@@ -122,7 +122,6 @@ async function refreshAtlasBrief() {
     ${actions}
   `;
 }
-
  function renderMap() {
     document.getElementById("atlas-map").innerHTML = `
         <div class="atlas-card">
