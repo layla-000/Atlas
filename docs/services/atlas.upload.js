@@ -1,7 +1,10 @@
-const AtlasUpload = (() => {
-    const STATE = {
-        currentTrip: "Türkiye 2026"
-    };
+window.AtlasUpload = (() => {
+  const STATE = {
+    currentTrip: {
+        id: "trip_turkiye_2026",
+        name: "Türkiye 2026"
+    }
+};
 
     function getUploadEndpoint() {
         if (!window.AtlasConfig || !window.AtlasConfig.backend) {
@@ -38,16 +41,11 @@ const AtlasUpload = (() => {
 
             const response = await fetch(endpoint, {
                 method: "POST",
+                mode: "no-cors",
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            dispatchComplete(file, type, buildSuccessMessage(file, type, result));
+      dispatchComplete(file, type, buildSuccessMessage(file, type, null));
         } catch (error) {
             dispatchError(file, type, error);
         }
@@ -65,7 +63,8 @@ const AtlasUpload = (() => {
 
             reader.onload = () => {
                 resolve({
-                    trip: STATE.currentTrip,
+  tripId: STATE.currentTrip.id,
+tripName: STATE.currentTrip.name,
                     type,
                     fileName: file.name,
                     mimeType: file.type || "application/octet-stream",
@@ -91,7 +90,8 @@ const AtlasUpload = (() => {
             detail: {
                 fileName: file.name,
                 type,
-                trip: STATE.currentTrip
+tripId: STATE.currentTrip.id,
+tripName: STATE.currentTrip.name
             }
         }));
     }
@@ -101,7 +101,8 @@ const AtlasUpload = (() => {
             detail: {
                 fileName: file.name,
                 type,
-                trip: STATE.currentTrip,
+tripId: STATE.currentTrip.id,
+tripName: STATE.currentTrip.name,
                 message
             }
         }));

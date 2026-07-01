@@ -1,11 +1,11 @@
 function handleAtlasUpload(payload) {
   validateUploadPayload(payload);
 
-  const trip = ATLAS_CONFIG.trips[payload.trip];
+  const trip = ATLAS_CONFIG.trips[payload.tripId];
 
-  if (!trip) {
-    throw new Error("Unknown trip: " + payload.trip);
-  }
+if (!trip) {
+  throw new Error("Unknown tripId: " + payload.tripId);
+}
 
   const targetFolderId = getTargetFolderId(trip, payload.type);
 
@@ -28,9 +28,9 @@ function validateUploadPayload(payload) {
     throw new Error("Missing payload.");
   }
 
-  if (!payload.trip) {
-    throw new Error("Missing trip.");
-  }
+if (!payload.tripId) {
+  throw new Error("Missing tripId.");
+}
 
   if (!payload.type) {
     throw new Error("Missing upload type.");
