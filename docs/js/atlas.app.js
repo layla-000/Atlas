@@ -20,6 +20,7 @@ const Atlas = (() => {
 bindEvents();
 await initializeMap();
 await refreshAtlasBrief();
+await refreshTravelStatus();
 AtlasCapture.initialize();
 
     STATE.initialized = true;
@@ -120,6 +121,36 @@ async function refreshAtlasBrief() {
     <h2>${brief.title || "좋은 아침이에요."}</h2>
     <p>${brief.summary || "오늘의 브리핑을 준비하고 있어요."}</p>
     ${actions}
+  `;
+}
+async function refreshTravelStatus() {
+  if (!window.AtlasAPI) {
+    return;
+  }
+
+  const travelStatus = await AtlasAPI.getTravelStatus();
+  const target = document.getElementById("travel-status");
+
+  if (!target) {
+    return;
+  }
+
+  const items = travelStatus.items && travelStatus.items.length > 0
+    ? travelStatus.items.map((item) => `
+      <li>
+        <span>${item.label}</span>
+        <strong>${item.value}</strong>
+      </li>
+    `).join("")
+    : "<li><span>Status</span><strong>대기 중</strong></li>";
+
+  target.innerHTML = `
+    <span class="eyebrow">Travel Status</span>
+    <h3>${travelStatus.title || "Travel Status"}</h3>
+    <p>${travelStatus.summary || "여행 준비 상태를 확인하고 있어요."}</p>
+    <ul>
+      ${items}
+    </ul>
   `;
 }
  function renderMap() {
