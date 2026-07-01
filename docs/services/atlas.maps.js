@@ -23,9 +23,6 @@ const AtlasMaps = (() => {
     return window.AtlasConfig.maps.apiKey;
 }
 
-        return window.AtlasConfig.googleMapsApiKey;
-    }
-
     function loadGoogleMaps() {
         return new Promise((resolve, reject) => {
             if (window.google && window.google.maps) {
