@@ -27,3 +27,25 @@ function createJsonResponse(data) {
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
+function doGet(e) {
+  const action = e && e.parameter ? e.parameter.action : null;
+
+  if (action === "inbox") {
+    return createJsonResponse({
+      success: true,
+      records: getAtlasInboxRecords(20)
+    });
+  }
+
+  if (action === "queue") {
+    return createJsonResponse({
+      success: true,
+      records: getQueuedInboxRecords(20)
+    });
+  }
+
+  return createJsonResponse({
+    success: true,
+    message: "Atlas backend is running."
+  });
+}
