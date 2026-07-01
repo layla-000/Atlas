@@ -1,0 +1,319 @@
+:root {
+    --atlas-bg: #141817;
+    --atlas-bg-soft: #191f1e;
+    --atlas-surface: #1f2423;
+    --atlas-surface-soft: #2a302f;
+
+    --atlas-text: #f2f4f3;
+    --atlas-text-muted: #c0c0c0;
+    --atlas-text-soft: #8f9996;
+
+    --atlas-border: rgba(192, 192, 192, 0.16);
+
+    --atlas-teal: #36c7b7;
+    --atlas-teal-soft: rgba(54, 199, 183, 0.16);
+
+    --atlas-red: #7f1d1d;
+    --atlas-red-soft: rgba(127, 29, 29, 0.18);
+
+    --atlas-radius-lg: 28px;
+    --atlas-radius-md: 20px;
+    --atlas-radius-sm: 14px;
+
+    --atlas-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+    --atlas-card-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
+
+    --atlas-gap: 18px;
+    --atlas-page-padding: 18px;
+    --atlas-max-width: 1440px;
+
+    --atlas-font: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+        "Segoe UI", sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    background: var(--atlas-bg);
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top left, rgba(54, 199, 183, 0.16), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(127, 29, 29, 0.12), transparent 32%),
+        var(--atlas-bg);
+    color: var(--atlas-text);
+    font-family: var(--atlas-font);
+}
+
+button {
+    font: inherit;
+}
+
+#atlas-app {
+    width: 100%;
+    min-height: 100vh;
+    padding: var(--atlas-page-padding);
+}
+
+#atlas-header {
+    width: min(100%, var(--atlas-max-width));
+    margin: 0 auto var(--atlas-gap);
+    padding: 4px 2px;
+}
+
+.atlas-title {
+    margin: 0;
+    font-size: clamp(30px, 5vw, 56px);
+    line-height: 0.95;
+    letter-spacing: -0.06em;
+}
+
+.atlas-subtitle {
+    margin: 8px 0 0;
+    color: var(--atlas-text-muted);
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#atlas-dashboard {
+    width: min(100%, var(--atlas-max-width));
+    margin: 0 auto;
+    display: grid;
+    gap: var(--atlas-gap);
+    grid-template-areas:
+        "brief"
+        "map"
+        "plan"
+        "status"
+        "actions";
+}
+
+#atlas-brief {
+    grid-area: brief;
+}
+
+#atlas-map {
+    grid-area: map;
+}
+
+#atlas-plan {
+    grid-area: plan;
+}
+
+#atlas-status {
+    grid-area: status;
+}
+
+#atlas-actions {
+    grid-area: actions;
+}
+
+.atlas-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--atlas-border);
+    border-radius: var(--atlas-radius-lg);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.055), transparent),
+        rgba(31, 36, 35, 0.82);
+    box-shadow: var(--atlas-card-shadow);
+    backdrop-filter: blur(18px);
+}
+
+.atlas-card-inner {
+    padding: 22px;
+}
+
+.atlas-card-label {
+    margin: 0 0 14px;
+    color: var(--atlas-teal);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.atlas-card-title {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: -0.04em;
+}
+
+.atlas-card-text {
+    margin: 14px 0 0;
+    color: var(--atlas-text-muted);
+    font-size: 15px;
+    line-height: 1.65;
+}
+
+.atlas-meta {
+    margin-top: 18px;
+    color: var(--atlas-text-soft);
+    font-size: 12px;
+}
+
+.atlas-map-frame {
+    min-height: 360px;
+    border-radius: var(--atlas-radius-lg);
+    background:
+        linear-gradient(135deg, rgba(54, 199, 183, 0.22), rgba(192, 192, 192, 0.08)),
+        var(--atlas-surface);
+}
+
+.atlas-map-canvas {
+    width: 100%;
+    height: 100%;
+    min-height: 360px;
+    border-radius: var(--atlas-radius-lg);
+}
+
+.atlas-plan-list {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.atlas-plan-item {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 14px;
+    padding: 16px;
+    color: var(--atlas-text);
+    text-align: left;
+    border: 1px solid var(--atlas-border);
+    border-radius: var(--atlas-radius-md);
+    background: rgba(42, 48, 47, 0.72);
+    cursor: pointer;
+}
+
+.atlas-plan-item:hover,
+.atlas-plan-item.is-active {
+    border-color: rgba(54, 199, 183, 0.7);
+    background: var(--atlas-teal-soft);
+}
+
+.atlas-plan-time {
+    color: var(--atlas-teal);
+    font-weight: 700;
+}
+
+.atlas-plan-name {
+    display: block;
+    font-weight: 700;
+}
+
+.atlas-plan-location {
+    display: block;
+    margin-top: 4px;
+    color: var(--atlas-text-muted);
+    font-size: 13px;
+}
+
+.atlas-status-grid {
+    display: grid;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.atlas-status-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 14px;
+    border: 1px solid var(--atlas-border);
+    border-radius: var(--atlas-radius-sm);
+    background: rgba(42, 48, 47, 0.62);
+}
+
+.atlas-status-value {
+    color: var(--atlas-teal);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.atlas-status-value.is-warning {
+    color: #f2b8b8;
+}
+
+.atlas-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.atlas-action-button {
+    min-height: 58px;
+    padding: 14px;
+    color: var(--atlas-text);
+    border: 1px solid var(--atlas-border);
+    border-radius: var(--atlas-radius-md);
+    background: rgba(42, 48, 47, 0.72);
+    cursor: pointer;
+}
+
+.atlas-action-button:hover {
+    border-color: rgba(54, 199, 183, 0.7);
+    background: var(--atlas-teal-soft);
+}
+
+@media (min-width: 960px) {
+    #atlas-app {
+        padding: 28px;
+    }
+
+    #atlas-dashboard {
+        min-height: calc(100vh - 132px);
+        grid-template-columns: minmax(520px, 1.3fr) minmax(360px, 0.7fr);
+        grid-template-rows: auto auto auto 1fr;
+        grid-template-areas:
+            "map brief"
+            "map plan"
+            "map status"
+            "actions actions";
+        align-items: stretch;
+    }
+
+    #atlas-map .atlas-card,
+    #atlas-map .atlas-map-frame,
+    #atlas-map .atlas-map-canvas {
+        height: 100%;
+        min-height: 620px;
+    }
+
+    #atlas-actions .atlas-card-inner {
+        padding: 18px 22px;
+    }
+
+    .atlas-actions-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+@media (max-width: 420px) {
+    :root {
+        --atlas-page-padding: 14px;
+        --atlas-gap: 14px;
+    }
+
+    .atlas-card-inner {
+        padding: 18px;
+    }
+
+    .atlas-map-frame,
+    .atlas-map-canvas {
+        min-height: 320px;
+    }
+
+    .atlas-actions-grid {
+        grid-template-columns: 1fr;
+    }
+}
