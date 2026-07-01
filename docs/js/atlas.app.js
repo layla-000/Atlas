@@ -16,11 +16,10 @@ const Atlas = (() => {
 
     console.log("Atlas initializing...");
 
-    render();
-
-    bindEvents();
-
-    await initializeMap();
+  render();
+bindEvents();
+await initializeMap();
+await renderMemoryPanel();
 
     AtlasCapture.initialize();
 
@@ -319,7 +318,42 @@ const Atlas = (() => {
 
     }
 
+async function renderMemoryPanel() {
+  const target = document.getElementById("atlas-status");
 
+  if (!target || !window.AtlasMemory) {
+    return;
+  }
+
+  const snapshots = await AtlasMemory.fetchSnapshots();
+  const latest = snapshots[0];
+
+  if (!latest) {
+    target.innerHTML += `
+      <div class="atlas-memory-panel">
+        <h3>Atlas Memory</h3>
+        <p>아직 저장된 Memory Snapshot이 없어요.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const entityCount = latest.entities ? latest.entities.length : 0;
+  const relationshipCount = latest.relationships ? latest.relationships.length : 0;
+  const fileName = latest.document && latest.document.fileName
+    ? latest.document.fileName
+    : "Unknown document";
+
+  target.innerHTML += `
+    <div class="atlas-memory-panel">
+      <h3>Atlas Memory</h3>
+      <p><strong>${latest.tripName || "Trip"}</strong></p>
+      <p>${fileName}</p>
+      <p>Entities: ${entityCount} · Relationships: ${relationshipCount}</p>
+      <p>Status: ${latest.status || "ready"}</p>
+    </div>
+  `;
+}
 
     async function initializeMap() {
 
