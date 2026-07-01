@@ -7,7 +7,12 @@ function doPost(e) {
       success: true,
       message: result.message,
       fileUrl: result.fileUrl,
-      fileId: result.fileId
+      fileId: result.fileId,
+      inboxId: result.inboxId,
+      inboxStatus: result.inboxStatus,
+      parserStatus: result.parserStatus,
+      notionStatus: result.notionStatus,
+      memoryStatus: result.memoryStatus
     });
   } catch (error) {
     return createJsonResponse({
