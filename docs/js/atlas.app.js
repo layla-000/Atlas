@@ -16,12 +16,11 @@ const Atlas = (() => {
 
     console.log("Atlas initializing...");
 
-  render();
+ render();
 bindEvents();
 await initializeMap();
-await renderMemoryPanel();
-
-    AtlasCapture.initialize();
+await refreshAtlasBrief();
+AtlasCapture.initialize();
 
     STATE.initialized = true;
 
@@ -106,7 +105,23 @@ await renderMemoryPanel();
 
     }
 
+async function refreshAtlasBrief() {
+  if (!window.AtlasBrief) {
+    return;
+  }
 
+  const brief = await AtlasBrief.fetchBrief();
+  const actions = brief.actions && brief.actions.length > 0
+    ? `<ul>${brief.actions.slice(0, 3).map((action) => `<li>${action}</li>`).join("")}</ul>`
+    : "";
+
+  document.getElementById("atlas-brief").innerHTML = `
+    <span class="eyebrow">Atlas Brief</span>
+    <h2>${brief.title || "좋은 아침이에요."}</h2>
+    <p>${brief.summary || "오늘의 브리핑을 준비하고 있어요."}</p>
+    ${actions}
+  `;
+}
 
  function renderMap() {
     document.getElementById("atlas-map").innerHTML = `
