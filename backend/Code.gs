@@ -27,33 +27,7 @@ function createJsonResponse(data) {
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
-function doGet(e) {
-  const action = e && e.parameter ? e.parameter.action : null;
-if (action === "brief") {
-  return createJsonResponse({
-    success: true,
-    brief: getLatestAtlasBrief()
-  });
-}
-  if (action === "inbox") {
-    return createJsonResponse({
-      success: true,
-      records: getAtlasInboxRecords(20)
-    });
-  }
 
-  if (action === "queue") {
-    return createJsonResponse({
-      success: true,
-      records: getQueuedInboxRecords(20)
-    });
-  }
-
-  return createJsonResponse({
-    success: true,
-    message: "Atlas backend is running."
-  });
-}
 function testRunParserOnce() {
   return runAtlasParserOnce();
 }
@@ -65,12 +39,21 @@ function testGetAtlasMemorySnapshots() {
 }
 function doGet(e) {
   const action = e && e.parameter ? e.parameter.action : null;
-if (action === "status") {
-  return createJsonResponse({
-    success: true,
-    status: generateTravelStatus()
-  });
-}
+
+  if (action === "brief") {
+    return createJsonResponse({
+      success: true,
+      brief: getLatestAtlasBrief()
+    });
+  }
+
+  if (action === "status") {
+    return createJsonResponse({
+      success: true,
+      status: generateTravelStatus()
+    });
+  }
+
   if (action === "memory") {
     return createJsonResponse({
       success: true,
@@ -83,13 +66,13 @@ if (action === "status") {
       success: true,
       records: getAtlasInboxRecords(20)
     });
+  }
 
-    if (action === "brief") {
-  return createJsonResponse({
-    success: true,
-    brief: getLatestAtlasBrief()
-  });
-}
+  if (action === "queue") {
+    return createJsonResponse({
+      success: true,
+      records: getQueuedInboxRecords(20)
+    });
   }
 
   return createJsonResponse({
