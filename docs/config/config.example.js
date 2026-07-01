@@ -38,5 +38,7 @@ window.AtlasConfig = {
         openAiApiKey: "",
         geminiApiKey: ""
     }
-
+backend: {
+    uploadEndpoint: ""
+}
 };
