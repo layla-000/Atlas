@@ -10,14 +10,17 @@ function runAtlasParserOnce() {
   }
 
   try {
-    const parsed = parseInboxRecord(record);
+   const parsed = parseInboxRecord(record);
+const knowledge = generateKnowledgeObjects(parsed, record);
 
-    const completed = completeInboxRecord(record.id, {
-      parserStatus: "completed",
-      notionStatus: "pending",
-      memoryStatus: "pending",
-      parsed: parsed
-    });
+const completed = completeInboxRecord(record.id, {
+  parserStatus: "completed",
+  notionStatus: "pending",
+  memoryStatus: "pending",
+  knowledgeStatus: "generated",
+  parsed: parsed,
+  knowledge: knowledge
+});
 
     return {
       success: true,
