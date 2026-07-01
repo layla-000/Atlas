@@ -52,3 +52,6 @@ function doGet(e) {
 function testRunParserOnce() {
   return runAtlasParserOnce();
 }
+function testRunSemanticOnce() {
+  return runAtlasSemanticOnce();
+}
