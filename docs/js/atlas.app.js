@@ -108,36 +108,16 @@ const Atlas = (() => {
 
 
 
-    function renderMap() {
-
-        document.getElementById("atlas-map").innerHTML = `
-
-            <div class="atlas-card">
-
-                <div class="atlas-card-inner">
-
-                    <div class="atlas-card-label">
-
-                        Live Map
-
-                    </div>
-
-                    <div
-
-                        id="google-map"
-
-                        class="atlas-map-canvas">
-
-                    </div>
-
-                </div>
-
+ function renderMap() {
+    document.getElementById("atlas-map").innerHTML = `
+        <div class="atlas-card">
+            <div class="atlas-card-inner">
+                <div class="atlas-card-label">Live Map</div>
+                <div id="google-map" class="atlas-map-canvas"></div>
             </div>
-
-        `;
-
-    }
-
+        </div>
+    `;
+}
 
 
     function renderTimeline() {
