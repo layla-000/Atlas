@@ -20,11 +20,19 @@ function runAtlasSemanticOnce() {
 
   const semantic = extractSemanticMemory(parsed, record);
 
-  const updated = updateInboxRecordStatus(record.id, {
-    semanticStatus: "completed",
-    semantic: semantic,
-    memoryStatus: "semantic_ready"
-  });
+const semanticReady = updateInboxRecordStatus(record.id, {
+  semanticStatus: "completed",
+  semantic: semantic,
+  memoryStatus: "semantic_ready"
+});
+
+const notionResult = syncSemanticMemoryToNotion(semanticReady);
+
+const updated = updateInboxRecordStatus(record.id, {
+  notionStatus: notionResult.notionStatus,
+  notion: notionResult,
+  memoryStatus: notionResult.notionStatus === "completed" ? "notion_synced" : "semantic_ready"
+});
 
   return {
     success: true,
