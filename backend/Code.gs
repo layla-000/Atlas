@@ -58,3 +58,25 @@ function testRunSemanticOnce() {
 function testGetAtlasMemorySnapshots() {
   return getAtlasMemorySnapshots(20);
 }
+function doGet(e) {
+  const action = e && e.parameter ? e.parameter.action : null;
+
+  if (action === "memory") {
+    return createJsonResponse({
+      success: true,
+      records: getAtlasMemorySnapshots(20)
+    });
+  }
+
+  if (action === "inbox") {
+    return createJsonResponse({
+      success: true,
+      records: getAtlasInboxRecords(20)
+    });
+  }
+
+  return createJsonResponse({
+    success: true,
+    message: "Atlas backend is running."
+  });
+}

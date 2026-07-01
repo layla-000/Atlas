@@ -15,24 +15,19 @@ function buildInboxRecord(payload, savedFile, trip) {
     id: createAtlasInboxId(),
     createdAt: now,
     updatedAt: now,
-
     source: "web_upload",
     status: "queued",
-
     tripId: payload.tripId,
     tripName: trip.name || payload.tripId,
     uploadType: payload.type,
-
     fileName: payload.fileName,
     mimeType: payload.mimeType || "application/octet-stream",
     fileId: savedFile.getId(),
     fileUrl: savedFile.getUrl(),
-
     parserStatus: isReceipt ? "skipped" : "queued",
     budgetStatus: isReceipt ? "queued" : "not_applicable",
     notionStatus: "pending",
     memoryStatus: "pending",
-
     error: null
   };
 }
@@ -68,6 +63,60 @@ function getAtlasInboxRecords(limit) {
     .filter(function(record) {
       return record !== null;
     });
+}
+
+function getQueuedInboxRecords(limit) {
+  return getAtlasInboxRecords(limit)
+    .filter(function(record) {
+      return record.status === "queued";
+    });
+}
+
+function lockNextInboxRecord() {
+  const queued = getQueuedInboxRecords(1);
+
+  if (queued.length === 0) {
+    return null;
+  }
+
+  return updateInboxRecordStatus(queued[0].id, {
+    status: "processing",
+    parserStatus: queued[0].parserStatus === "queued" ? "processing" : queued[0].parserStatus,
+    error: null,
+    lockedAt: new Date().toISOString()
+  });
+}
+
+function completeInboxRecord(recordId, result) {
+  return updateInboxRecordStatus(recordId, {
+    status: "completed",
+    parserStatus: "completed",
+    notionStatus: result && result.notionStatus ? result.notionStatus : "pending",
+    memoryStatus: result && result.memoryStatus ? result.memoryStatus : "pending",
+    result: result || null,
+    error: null,
+    completedAt: new Date().toISOString()
+  });
+}
+
+function failInboxRecord(recordId, errorMessage) {
+  return updateInboxRecordStatus(recordId, {
+    status: "failed",
+    parserStatus: "failed",
+    error: errorMessage || "Unknown inbox processing error",
+    failedAt: new Date().toISOString()
+  });
+}
+
+function resetInboxRecord(recordId) {
+  return updateInboxRecordStatus(recordId, {
+    status: "queued",
+    parserStatus: "queued",
+    error: null,
+    lockedAt: null,
+    failedAt: null,
+    completedAt: null
+  });
 }
 
 function updateInboxRecordStatus(recordId, patch) {
