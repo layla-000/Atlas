@@ -73,6 +73,13 @@ function doGet(e) {
       success: true,
       records: getAtlasInboxRecords(20)
     });
+
+    if (action === "brief") {
+  return createJsonResponse({
+    success: true,
+    brief: getLatestAtlasBrief()
+  });
+}
   }
 
   return createJsonResponse({
