@@ -42,7 +42,7 @@ const AtlasMaps = (() => {
             const apiKey = getApiKey();
 
             if (!apiKey) {
-                reject(new Error("Google Maps API key is missing. Check web/config/config.js."));
+                reject(new Error("Google Maps API key is missing. Check docs/config/config.js."));
                 return;
             }
 
