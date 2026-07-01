@@ -49,3 +49,6 @@ function doGet(e) {
     message: "Atlas backend is running."
   });
 }
+function testRunParserOnce() {
+  return runAtlasParserOnce();
+}
