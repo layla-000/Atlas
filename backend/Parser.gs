@@ -16,15 +16,17 @@ function runAtlasParserOnce() {
 parsed.documentIntel = documentIntel;
 
 const knowledge = generateKnowledgeObjects(parsed, record);
+const notionResult = syncParsedDocumentToNotion(record, parsed, documentIntel, knowledge);
 
 const completed = completeInboxRecord(record.id, {
   parserStatus: "completed",
-  notionStatus: "pending",
+  notionStatus: notionResult.notionStatus,
   memoryStatus: "pending",
   knowledgeStatus: "generated",
   parsed: parsed,
-documentIntel: documentIntel,
-  knowledge: knowledge
+  documentIntel: documentIntel,
+  knowledge: knowledge,
+  notion: notionResult
 });
 
     return {
