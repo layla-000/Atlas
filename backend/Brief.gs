@@ -71,8 +71,15 @@ function buildBriefSummary_(insights) {
     return "아직 생성된 브리핑이 없어요.";
   }
 
-  return insights
-    .slice(0, 3)
+  const travelInsights = insights.filter(function(item) {
+    return item.id && String(item.id).indexOf("insight_travel_memory_") === 0;
+  });
+
+  const selected = travelInsights.length > 0
+    ? travelInsights.slice(0, 3)
+    : insights.slice(0, 3);
+
+  return selected
     .map(function(item) {
       return item.message;
     })
@@ -192,4 +199,9 @@ function buildTransportBriefMessage_(object) {
   }
 
   return name + " 교통 문서가 Atlas Memory에 반영되었어요.";
+}
+function testGenerateAtlasBrief() {
+  const brief = generateAtlasBrief();
+  console.log(JSON.stringify(brief, null, 2));
+  return brief;
 }

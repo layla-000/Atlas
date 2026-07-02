@@ -228,3 +228,123 @@ function getFileFormatForNotion_(mimeType) {
   if (mimeType.indexOf("text/") === 0) return "text";
   return "unknown";
 }
+function syncKnowledgeObjectsToNotion(record, knowledge) {
+  const config = getNotionConfig_();
+
+  if (!config.enabled || !config.entityDatabaseId) {
+    return {
+      knowledgeNotionStatus: "skipped",
+      message: "Notion Knowledge DB 설정이 없어 저장을 건너뛰었어요."
+    };
+  }
+
+  if (!knowledge || !knowledge.objects || knowledge.objects.length === 0) {
+    return {
+      knowledgeNotionStatus: "skipped",
+      message: "동기화할 Knowledge Object가 없어요."
+    };
+  }
+
+  const results = knowledge.objects.map(function(object) {
+    return createNotionKnowledgeObjectFromParser_(config, record, object);
+  });
+
+  return {
+    knowledgeNotionStatus: "completed",
+    syncedAt: new Date().toISOString(),
+    count: results.length,
+    objects: results
+  };
+}
+
+function createNotionKnowledgeObjectFromParser_(config, record, object) {
+  const props = object.properties || {};
+  const travelData = props.travelData || {};
+  const objectType = mapKnowledgeObjectTypeForNotion_(object.type);
+  const category = mapKnowledgeCategoryForNotion_(object.type);
+
+  const payload = {
+    parent: { database_id: config.entityDatabaseId },
+    properties: {
+      "Name": {
+        title: [{ text: { content: object.name || "Untitled" } }]
+      },
+      "Object Type": {
+        select: { name: objectType }
+      },
+      "Object ID": {
+        rich_text: [{ text: { content: object.id || "" } }]
+      },
+      "Confidence": {
+        number: object.confidence || props.confidence || 0.7
+      },
+      "Category": {
+        select: { name: category }
+      },
+      "Last Synced At": {
+        date: { start: new Date().toISOString() }
+      }
+    }
+  };
+
+  addOptionalRichTextProperty_(payload.properties, "Hotel Name", travelData.hotelName);
+  addOptionalRichTextProperty_(payload.properties, "Airline", travelData.airline);
+  addOptionalRichTextProperty_(payload.properties, "Flight No", travelData.flightNumber);
+  addOptionalRichTextProperty_(payload.properties, "PNR", travelData.bookingReference);
+  addOptionalRichTextProperty_(payload.properties, "Departure Airport", travelData.departurePlace);
+  addOptionalRichTextProperty_(payload.properties, "Arrival Airport", travelData.arrivalPlace);
+
+  addOptionalDateProperty_(payload.properties, "Check-in", travelData.checkIn);
+  addOptionalDateProperty_(payload.properties, "Check-out", travelData.checkOut);
+  addOptionalDateProperty_(payload.properties, "Departure Date", travelData.departureTime);
+
+  return callNotionCreatePage_(config.token, payload);
+}
+
+function addOptionalRichTextProperty_(properties, name, value) {
+  if (!value) return;
+  properties[name] = {
+    rich_text: [{ text: { content: String(value) } }]
+  };
+}
+
+function addOptionalDateProperty_(properties, name, value) {
+  if (!value) return;
+
+  const iso = parseTravelDateForNotion_(value);
+  if (!iso) return;
+
+  properties[name] = {
+    date: { start: iso }
+  };
+}
+
+function parseTravelDateForNotion_(value) {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+
+  const parsed = new Date(raw);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString();
+  }
+
+  return null;
+}
+
+function mapKnowledgeObjectTypeForNotion_(type) {
+  if (type === "hotel_booking") return "Hotel";
+  if (type === "flight_booking") return "Flight";
+  if (type === "document") return "Document";
+  return "Document";
+}
+
+function mapKnowledgeCategoryForNotion_(type) {
+  if (type === "hotel_booking") return "Accommodation";
+  if (type === "flight_booking") return "Transportation";
+  if (type === "train_ticket") return "Transportation";
+  if (type === "bus_ticket") return "Transportation";
+  if (type === "tour_booking") return "Activity";
+  if (type === "document") return "Document";
+  return "Document";
+}

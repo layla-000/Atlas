@@ -18,6 +18,7 @@ parsed.documentIntel = documentIntel;
 const knowledge = generateKnowledgeObjects(parsed, record);
 const notionResult = syncParsedDocumentToNotion(record, parsed, documentIntel, knowledge);
 const memoryResult = syncParsedDocumentToMemory(record, parsed, documentIntel, knowledge);
+const knowledgeNotionResult = syncKnowledgeObjectsToNotion(record, knowledge);
 
 const completed = completeInboxRecord(record.id, {
   parserStatus: "completed",
@@ -28,7 +29,8 @@ const completed = completeInboxRecord(record.id, {
   documentIntel: documentIntel,
   knowledge: knowledge,
   notion: notionResult,
-    memory: memoryResult
+    memory: memoryResult,
+    knowledgeNotion: knowledgeNotionResult
 });
 
     return {
