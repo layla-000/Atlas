@@ -431,3 +431,25 @@ button {
     font-size: 14px;
     line-height: 1.5;
 }
+.atlas-next-transport {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.atlas-next-transport strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.atlas-next-transport p {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.atlas-action-button.is-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
