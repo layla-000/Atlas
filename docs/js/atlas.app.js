@@ -184,7 +184,7 @@ function renderActions(links) {
             label: "Boarding Pass",
             sublabel: "탑승권 확인",
             url: links.boarding_pass,
-            imageSrc: "docs/assets/images/quick-actions/boardingpass.png",
+            imageSrc: "docs/assets/images/quick-actions/bp.png",
             imageAlt: "Boarding Pass"
           })}
 
