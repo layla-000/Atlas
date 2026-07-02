@@ -45,6 +45,7 @@ documentIntel: documentIntel,
 
 function parseInboxRecord(record) {
   const file = DriveApp.getFileById(record.fileId);
+  const extraction = extractTextPreview_(file, record);
 
   return {
     parsedAt: new Date().toISOString(),
@@ -58,11 +59,14 @@ function parseInboxRecord(record) {
     tripName: record.tripName,
     title: buildParsedDocumentTitle_(record),
     summary: buildParsedDocumentSummary_(record, file),
-    extractedText: extractTextPreview_(file, record),
+    extractedText: extraction.text || "",
+    extractionMeta: {
+      lowQuality: extraction.lowQuality || false,
+      method: extraction.method || "unknown"
+    },
     nextAction: "notion_document_record"
   };
 }
-
 function buildParsedDocumentTitle_(record) {
   return "[" + record.tripName + "] " + record.fileName;
 }
@@ -76,19 +80,32 @@ function extractTextPreview_(file, record) {
   const mimeType = record.mimeType || file.getMimeType();
 
   if (mimeType.indexOf("text/") === 0) {
-    return file.getBlob().getDataAsString().slice(0, 5000);
+    return {
+      text: file.getBlob().getDataAsString().slice(0, 5000),
+      lowQuality: false,
+      method: "plain_text"
+    };
   }
 
-if (mimeType === MimeType.PDF || mimeType === "application/pdf") {
-  const text = extractPdfText_(record.fileId);
-  const lowQuality = isLowQualityExtractedText_(text);
+  if (mimeType === MimeType.PDF || mimeType === "application/pdf") {
+    const text = extractPdfText_(record.fileId);
+    const lowQuality = isLowQualityExtractedText_(text);
 
-  console.log("[Parser] PDF extractedText length:", text.length);
-  console.log("[Parser] PDF extractedText lowQuality:", lowQuality);
+    console.log("[Parser] PDF extractedText length:", text.length);
+    console.log("[Parser] PDF extractedText lowQuality:", lowQuality);
 
-  return text.slice(0, 50000);
-}
-  return "";
+    return {
+      text: text.slice(0, 50000),
+      lowQuality: lowQuality,
+      method: "google_docs_pdf_conversion"
+    };
+  }
+
+  return {
+    text: "",
+    lowQuality: false,
+    method: "unsupported"
+  };
 }
 function extractPdfText_(fileId) {
   let tempDocId = null;
