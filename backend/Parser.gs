@@ -17,16 +17,18 @@ parsed.documentIntel = documentIntel;
 
 const knowledge = generateKnowledgeObjects(parsed, record);
 const notionResult = syncParsedDocumentToNotion(record, parsed, documentIntel, knowledge);
+const memoryResult = syncParsedDocumentToMemory(record, parsed, documentIntel, knowledge);
 
 const completed = completeInboxRecord(record.id, {
   parserStatus: "completed",
   notionStatus: notionResult.notionStatus,
-  memoryStatus: "pending",
+  memoryStatus: memoryResult.memoryStatus,
   knowledgeStatus: "generated",
   parsed: parsed,
   documentIntel: documentIntel,
   knowledge: knowledge,
-  notion: notionResult
+  notion: notionResult,
+    memory: memoryResult
 });
 
     return {
