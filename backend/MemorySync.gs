@@ -151,3 +151,31 @@ function getAtlasTravelMemoryPatches(tripId, limit) {
 
   return limit ? patches.slice(0, limit) : patches;
 }
+function getAtlasTravelMemoryForDashboard(tripId, limit) {
+  const targetTripId = tripId || "trip_turkiye_2026";
+  const patches = getAtlasTravelMemoryPatches(targetTripId, limit || 10);
+
+  return {
+    success: true,
+    generatedAt: new Date().toISOString(),
+    tripId: targetTripId,
+    count: patches.length,
+    items: patches.map(function(patch) {
+      return {
+        id: patch.id,
+        createdAt: patch.createdAt,
+        objectType: patch.objectType,
+        source: patch.source,
+        sourceDocument: patch.sourceDocument,
+        object: patch.object,
+        lowQuality: patch.sourceDocument && patch.sourceDocument.lowQuality === true
+      };
+    })
+  };
+}
+
+function testGetTravelMemoryDashboard() {
+  const result = getAtlasTravelMemoryForDashboard("trip_turkiye_2026", 10);
+  console.log(JSON.stringify(result, null, 2));
+  return result;
+}

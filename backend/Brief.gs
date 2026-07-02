@@ -1,7 +1,10 @@
 const ATLAS_BRIEF_LATEST_KEY = "ATLAS_BRIEF_LATEST";
 
 function generateAtlasBrief() {
-  const insights = generateAtlasInsights();
+  const baseInsights = generateAtlasInsights();
+  const travelMemoryInsights = generateTravelMemoryBriefInsights_("trip_turkiye_2026");
+
+  const insights = baseInsights.concat(travelMemoryInsights);
   const now = new Date().toISOString();
 
   const highPriority = insights.filter(function(item) {
@@ -74,4 +77,119 @@ function buildBriefSummary_(insights) {
       return item.message;
     })
     .join(" ");
+}
+function generateTravelMemoryBriefInsights_(tripId) {
+  const memory = getAtlasTravelMemoryForDashboard(tripId || "trip_turkiye_2026", 10);
+  const items = memory && memory.items ? memory.items : [];
+
+  return items.map(function(item) {
+    return buildTravelMemoryInsight_(item);
+  }).filter(function(insight) {
+    return insight !== null;
+  }).slice(0, 5);
+}
+
+function buildTravelMemoryInsight_(item) {
+  if (!item || !item.objectType) {
+    return null;
+  }
+
+  const object = item.object || {};
+  const sourceDocument = item.sourceDocument || {};
+  const lowQuality = item.lowQuality === true;
+
+  if (lowQuality) {
+    return {
+      id: "insight_travel_memory_" + item.id,
+      type: "document_quality",
+      priority: "medium",
+      message: sourceDocument.fileName + " 문서는 읽기 품질이 낮아 OCR 보강이 필요해요.",
+      action: "데스크탑 OCR 처리 대상으로 표시해 두세요."
+    };
+  }
+
+  if (item.objectType === "hotel_booking") {
+    return {
+      id: "insight_travel_memory_" + item.id,
+      type: "hotel_booking",
+      priority: "normal",
+      message: buildHotelBriefMessage_(object),
+      action: ""
+    };
+  }
+
+  if (item.objectType === "flight_booking") {
+    return {
+      id: "insight_travel_memory_" + item.id,
+      type: "flight_booking",
+      priority: "normal",
+      message: buildFlightBriefMessage_(object),
+      action: ""
+    };
+  }
+
+  if (item.objectType === "tour_booking") {
+    return {
+      id: "insight_travel_memory_" + item.id,
+      type: "tour_booking",
+      priority: "normal",
+      message: buildTourBriefMessage_(object),
+      action: ""
+    };
+  }
+
+  if (item.objectType === "train_ticket" || item.objectType === "bus_ticket") {
+    return {
+      id: "insight_travel_memory_" + item.id,
+      type: item.objectType,
+      priority: "normal",
+      message: buildTransportBriefMessage_(object),
+      action: ""
+    };
+  }
+
+  return null;
+}
+
+function buildHotelBriefMessage_(object) {
+  const name = object.hotelName || object.name || "숙소 예약";
+  const dates = [object.checkIn, object.checkOut].filter(Boolean).join("~");
+
+  if (dates) {
+    return name + " 숙박 정보가 Atlas Memory에 반영되었어요. (" + dates + ")";
+  }
+
+  return name + " 숙소 문서가 Atlas Memory에 반영되었어요.";
+}
+
+function buildFlightBriefMessage_(object) {
+  const airline = object.airline || "항공권";
+  const route = [object.departurePlace, object.arrivalPlace].filter(Boolean).join(" → ");
+
+  if (route) {
+    return airline + " " + route + " 항공 정보가 Atlas Memory에 반영되었어요.";
+  }
+
+  return airline + " 항공권 문서가 Atlas Memory에 반영되었어요.";
+}
+
+function buildTourBriefMessage_(object) {
+  const name = object.tourName || object.name || "투어 예약";
+
+  if (object.date) {
+    return name + " 투어 정보가 Atlas Memory에 반영되었어요. (" + object.date + ")";
+  }
+
+  return name + " 투어 문서가 Atlas Memory에 반영되었어요.";
+}
+
+function buildTransportBriefMessage_(object) {
+  const route = [object.departurePlace, object.arrivalPlace].filter(Boolean).join(" → ");
+  const name = object.provider || object.routeName || object.name || "교통 티켓";
+
+  if (route) {
+    return name + " " + route + " 이동 정보가 Atlas Memory에 반영되었어요.";
+  }
+
+  return name + " 교통 문서가 Atlas Memory에 반영되었어요.";
 }

@@ -46,7 +46,17 @@ function doGet(e) {
   if (action && routes[action]) {
     return createJsonResponse(routes[action]());
   }
+if (action === "travel_memory") {
+  const tripId = e && e.parameter && e.parameter.tripId
+    ? e.parameter.tripId
+    : "trip_turkiye_2026";
 
+  const limit = e && e.parameter && e.parameter.limit
+    ? Number(e.parameter.limit)
+    : 10;
+
+  return jsonResponse_(getAtlasTravelMemoryForDashboard(tripId, limit));
+}
   return createJsonResponse({
     success: true,
     message: "Atlas backend is running."
@@ -56,5 +66,11 @@ function doGet(e) {
 function createJsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonResponse_(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data, null, 2))
     .setMimeType(ContentService.MimeType.JSON);
 }
