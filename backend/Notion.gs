@@ -118,53 +118,41 @@ function syncParsedDocumentToNotion(record, parsed, documentIntel, knowledge) {
 
   const payload = {
     parent: { database_id: config.documentDatabaseId },
-    properties: {
-      "name": {
-        title: [{ text: { content: parsed.title || record.fileName || "Untitled Document" } }]
-      },
-      "confidence": {
-        number: documentIntel && documentIntel.confidence ? documentIntel.confidence : 0.7
-      },
-      "document ID": {
-        rich_text: [{ text: { content: record.id } }]
-      },
-      "document type": {
-        select: { name: documentType }
-      },
-      "extraction status": {
-        select: { name: extractionMeta.lowQuality ? "low_quality" : "parsed" }
-      },
-      "file": {
-        url: parsed.fileUrl || record.fileUrl || null
-      },
-      "file format": {
-        rich_text: [{ text: { content: record.mimeType || parsed.mimeType || "unknown" } }]
-      },
-      "file name": {
-        rich_text: [{ text: { content: record.fileName || "" } }]
-      },
-      "language": {
-        rich_text: [{ text: { content: detectDocumentLanguage_(parsed) } }]
-      },
-      "status": {
-        select: { name: "parsed" }
-      },
-      "trip": {
-        rich_text: [{ text: { content: record.tripName || record.tripId || "" } }]
-      },
-      "uploaded at": {
-        date: { start: record.createdAt || new Date().toISOString() }
-      },
-      "extracted objects": {
-        rich_text: [{ text: { content: safeJsonForNotion_(knowledge) } }]
-      },
-      "evidence lines": {
-        rich_text: [{ text: { content: buildEvidenceLinesForNotion_(parsed, documentIntel) } }]
-      },
-      "tags": {
-        multi_select: buildDocumentTags_(documentType, extractionMeta)
-      }
-    }
+   properties: {
+  "Name": {
+    title: [{ text: { content: parsed.title || record.fileName || "Untitled Document" } }]
+  },
+  "Confidence": {
+    number: documentIntel && documentIntel.confidence ? documentIntel.confidence : 0.7
+  },
+  "Document ID": {
+    rich_text: [{ text: { content: record.id } }]
+  },
+  "Document Type": {
+    select: { name: documentType }
+  },
+  "Extraction Status": {
+    select: { name: extractionMeta.lowQuality ? "low_quality" : "parsed" }
+  },
+  "File Format": {
+    select: { name: getFileFormatForNotion_(record.mimeType || parsed.mimeType) }
+  },
+  "File Name": {
+    rich_text: [{ text: { content: record.fileName || "" } }]
+  },
+  "Language": {
+    select: { name: detectDocumentLanguage_(parsed) }
+  },
+  "Status": {
+    select: { name: "parsed" }
+  },
+  "Uploaded At": {
+    date: { start: record.createdAt || new Date().toISOString() }
+  },
+  "Tags": {
+    multi_select: buildDocumentTags_(documentType, extractionMeta)
+  }
+}
   };
 
   const result = callNotionCreatePage_(config.token, payload);
@@ -232,4 +220,11 @@ function detectDocumentLanguage_(parsed) {
   if (/[가-힣]/.test(text)) return "ko";
   if (/[ğüşöçıİĞÜŞÖÇ]/i.test(text)) return "tr";
   return "en";
+}
+function getFileFormatForNotion_(mimeType) {
+  if (!mimeType) return "unknown";
+  if (mimeType === "application/pdf") return "pdf";
+  if (mimeType.indexOf("image/") === 0) return "image";
+  if (mimeType.indexOf("text/") === 0) return "text";
+  return "unknown";
 }
