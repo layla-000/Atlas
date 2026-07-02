@@ -16,9 +16,12 @@ function runAtlasParserOnce() {
 parsed.documentIntel = documentIntel;
 
 const knowledge = generateKnowledgeObjects(parsed, record);
+const relationships = generateKnowledgeRelationships(parsed, record, knowledge);
+
 const notionResult = syncParsedDocumentToNotion(record, parsed, documentIntel, knowledge);
 const memoryResult = syncParsedDocumentToMemory(record, parsed, documentIntel, knowledge);
 const knowledgeNotionResult = syncKnowledgeObjectsToNotion(record, knowledge);
+const relationshipNotionResult = syncKnowledgeRelationshipsToNotion(record, relationships);
 
 const completed = completeInboxRecord(record.id, {
   parserStatus: "completed",
@@ -30,7 +33,9 @@ const completed = completeInboxRecord(record.id, {
   knowledge: knowledge,
   notion: notionResult,
     memory: memoryResult,
-    knowledgeNotion: knowledgeNotionResult
+    knowledgeNotion: knowledgeNotionResult,
+    relationships: relationships,
+relationshipNotion: relationshipNotionResult
 });
 
     return {

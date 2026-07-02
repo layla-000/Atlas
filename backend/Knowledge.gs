@@ -160,3 +160,58 @@ function buildTravelKnowledgeName_(type, data, parsed) {
 
   return parsed.title || type;
 }
+function generateKnowledgeRelationships(parsed, record, knowledge) {
+  const now = new Date().toISOString();
+  const objects = knowledge && knowledge.objects ? knowledge.objects : [];
+  const relationships = [];
+
+  const documentObject = objects.find(function(object) {
+    return object.type === "document";
+  });
+
+  if (!documentObject) {
+    return {
+      generatedAt: now,
+      count: 0,
+      relationships: []
+    };
+  }
+
+  objects.forEach(function(object) {
+    if (object.id === documentObject.id) return;
+
+    relationships.push(createKnowledgeRelationship_(
+      "document_evidences_object",
+      documentObject.id,
+      object.id,
+      record,
+      {
+        sourceFileName: record.fileName,
+        sourceDocumentTitle: parsed.title
+      },
+      now
+    ));
+  });
+
+  return {
+    generatedAt: now,
+    count: relationships.length,
+    relationships: relationships
+  };
+}
+
+function createKnowledgeRelationship_(type, fromId, toId, record, properties, now) {
+  return {
+    id: "rel_" + Utilities.getUuid(),
+    type: type,
+    fromId: fromId,
+    toId: toId,
+    confidence: 0.8,
+    properties: Object.assign({
+      tripId: record.tripId,
+      tripName: record.tripName,
+      source: "parser_relationship_builder",
+      createdAt: now || new Date().toISOString()
+    }, properties || {})
+  };
+}
