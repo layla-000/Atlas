@@ -50,7 +50,13 @@ if (action === "travel_memory") {
   const tripId = e && e.parameter && e.parameter.tripId
     ? e.parameter.tripId
     : "trip_turkiye_2026";
+if (action === "run_batch") {
+  const limit = e && e.parameter && e.parameter.limit
+    ? Number(e.parameter.limit)
+    : 5;
 
+  return jsonResponse_(runAtlasPipelineBatch(limit));
+}
   const limit = e && e.parameter && e.parameter.limit
     ? Number(e.parameter.limit)
     : 10;

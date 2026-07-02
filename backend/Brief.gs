@@ -88,8 +88,21 @@ function buildBriefSummary_(insights) {
 function generateTravelMemoryBriefInsights_(tripId) {
   const memory = getAtlasTravelMemoryForDashboard(tripId || "trip_turkiye_2026", 10);
   const items = memory && memory.items ? memory.items : [];
+  const seen = {};
 
   return items.map(function(item) {
+    const sourceDocument = item.sourceDocument || {};
+    const key = [
+      sourceDocument.inboxId || "",
+      item.objectType || "",
+      item.lowQuality ? "low_quality" : "normal"
+    ].join("__");
+
+    if (seen[key]) {
+      return null;
+    }
+
+    seen[key] = true;
     return buildTravelMemoryInsight_(item);
   }).filter(function(insight) {
     return insight !== null;
