@@ -250,31 +250,7 @@ function renderQuickActionImageCard(options) {
     </a>
   `;
 }
-function renderQuickActionImageCard(options) {
-  const label = options.label || "";
-  const sublabel = options.sublabel || "";
-  const url = options.url || "";
-  const imageSrc = options.imageSrc || "";
-  const imageAlt = options.imageAlt || label;
 
-  if (!url) {
-    return `
-      <button class="atlas-action-card atlas-action-card-image is-disabled" disabled>
-        <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
-      </button>
-    `;
-  }
-
-  return `
-    <a class="atlas-action-card atlas-action-card-image"
-       href="${escapeHtml(url)}"
-       target="_blank"
-       rel="noopener noreferrer"
-       aria-label="${escapeHtml(label)}">
-      <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
-    </a>
-  `;
-}
   async function initializeMap() {
     STATE.places = [
       { id: "home", title: "Home", lat: 37.5665, lng: 126.9780 },
