@@ -56,6 +56,7 @@ const Atlas = (() => {
     if (!window.AtlasAPI) return;
 
     const brief = await AtlasAPI.getBrief();
+    console.log("ATLAS BRIEF RAW", brief);
     STATE.brief = brief || {};
 
     const actions = brief.actions && brief.actions.length > 0
