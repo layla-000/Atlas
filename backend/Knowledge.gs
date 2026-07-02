@@ -20,6 +20,8 @@ function generateKnowledgeObjects(parsed, record) {
     createdAt: now
   }));
 
+  addTravelDocumentKnowledgeObject_(parsed, record, objects, now);
+
   extractDateObjects_(text, record, objects, now);
   extractMoneyObjects_(text, record, objects, now);
   extractLocationObjects_(text, record, objects, now);
@@ -30,7 +32,6 @@ function generateKnowledgeObjects(parsed, record) {
     objects: objects
   };
 }
-
 function createKnowledgeObject_(type, name, properties) {
   return {
     id: "ko_" + Utilities.getUuid(),
@@ -88,4 +89,74 @@ function extractLocationObjects_(text, record, objects, now) {
       }));
     }
   });
+}
+function addTravelDocumentKnowledgeObject_(parsed, record, objects, now) {
+  const intel = parsed.documentIntel;
+
+  if (!intel || !intel.documentType || !intel.travelData) {
+    return;
+  }
+
+  if (intel.documentType === "unknown_document") {
+    return;
+  }
+
+  const travelObject = buildTravelKnowledgeObject_(intel, parsed, record, now);
+
+  if (travelObject) {
+    objects.push(travelObject);
+  }
+}
+
+function buildTravelKnowledgeObject_(intel, parsed, record, now) {
+  const data = intel.travelData || {};
+  const type = intel.documentType;
+
+  return createKnowledgeObject_(type, buildTravelKnowledgeName_(type, data, parsed), {
+    tripId: record.tripId,
+    tripName: record.tripName,
+    sourceDocumentTitle: parsed.title,
+    sourceFileName: parsed.fileName,
+    fileId: parsed.fileId,
+    fileUrl: parsed.fileUrl,
+    source: "document_intel",
+    createdAt: now,
+    documentType: type,
+    confidence: intel.confidence || data.confidence || 0.6,
+    travelData: data
+  });
+}
+
+function buildTravelKnowledgeName_(type, data, parsed) {
+  if (type === "hotel_booking") {
+    return data.hotelName || parsed.title;
+  }
+
+  if (type === "flight_booking") {
+    const airline = data.airline || "Flight";
+    const route = [data.departurePlace, data.arrivalPlace]
+      .filter(Boolean)
+      .join(" → ");
+    return route ? airline + " " + route : (parsed.title || "Flight Booking");
+  }
+
+  if (type === "tour_booking") {
+    return data.tourName || parsed.title;
+  }
+
+  if (type === "train_ticket") {
+    const route = [data.departurePlace, data.arrivalPlace]
+      .filter(Boolean)
+      .join(" → ");
+    return route || parsed.title || "Train Ticket";
+  }
+
+  if (type === "bus_ticket") {
+    const route = [data.departurePlace, data.arrivalPlace]
+      .filter(Boolean)
+      .join(" → ");
+    return route || parsed.title || "Bus Ticket";
+  }
+
+  return parsed.title || type;
 }

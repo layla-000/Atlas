@@ -11,7 +11,8 @@ function runAtlasParserOnce() {
 
   try {
    const parsed = parseInboxRecord(record);
-const documentIntel = analyzeTravelDocument(parsed);
+   const documentIntel = analyzeTravelDocument(parsed);
+
 parsed.documentIntel = documentIntel;
 
 const knowledge = generateKnowledgeObjects(parsed, record);
@@ -22,7 +23,7 @@ const completed = completeInboxRecord(record.id, {
   memoryStatus: "pending",
   knowledgeStatus: "generated",
   parsed: parsed,
-  documentIntel: documentIntel,
+documentIntel: documentIntel,
   knowledge: knowledge
 });
 
@@ -78,12 +79,15 @@ function extractTextPreview_(file, record) {
     return file.getBlob().getDataAsString().slice(0, 5000);
   }
 
-  if (mimeType === MimeType.PDF || mimeType === "application/pdf") {
-    const text = extractPdfText_(record.fileId);
-    console.log("[Parser] PDF extractedText length:", text.length);
-    return text.slice(0, 50000);
-  }
+if (mimeType === MimeType.PDF || mimeType === "application/pdf") {
+  const text = extractPdfText_(record.fileId);
+  const lowQuality = isLowQualityExtractedText_(text);
 
+  console.log("[Parser] PDF extractedText length:", text.length);
+  console.log("[Parser] PDF extractedText lowQuality:", lowQuality);
+
+  return text.slice(0, 50000);
+}
   return "";
 }
 function extractPdfText_(fileId) {
@@ -114,4 +118,46 @@ function extractPdfText_(fileId) {
       }
     }
   }
+}
+function isLowQualityExtractedText_(text) {
+  if (!text) return true;
+
+  const trimmed = String(text).trim();
+  if (trimmed.length < 80) return true;
+
+  // 줄 수와 단어 수
+  const lines = trimmed.split(/\r?\n/).map(function(line) {
+    return line.trim();
+  }).filter(Boolean);
+
+  const words = trimmed.split(/\s+/).filter(Boolean);
+
+  // 이상한 문자 비율
+  const weirdMatches = trimmed.match(/[^a-zA-Z0-9가-힣\s.,:;()\-\/#&@]/g) || [];
+  const weirdRatio = weirdMatches.length / trimmed.length;
+
+  // "정상 단어"로 보이는 토큰 수
+  const readableWords = words.filter(function(word) {
+    return /[a-zA-Z가-힣]{2,}/.test(word);
+  });
+  const readableRatio = words.length ? readableWords.length / words.length : 0;
+
+  // 너무 짧은 줄이 비정상적으로 많으면 깨진 PDF일 가능성
+  const shortLines = lines.filter(function(line) {
+    return line.length <= 3;
+  });
+  const shortLineRatio = lines.length ? shortLines.length / lines.length : 0;
+
+  // 한 글자/기호 위주 토큰 비율
+  const junkWords = words.filter(function(word) {
+    return word.length <= 2 && !/[a-zA-Z가-힣0-9]{2,}/.test(word);
+  });
+  const junkRatio = words.length ? junkWords.length / words.length : 0;
+
+  if (weirdRatio > 0.18) return true;
+  if (readableRatio < 0.45) return true;
+  if (shortLineRatio > 0.35) return true;
+  if (junkRatio > 0.35) return true;
+
+  return false;
 }
