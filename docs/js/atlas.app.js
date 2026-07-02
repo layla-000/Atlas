@@ -172,34 +172,109 @@ renderActions(brief.quick_links || brief.drive_links || {});
     `;
   }
 
-  function renderActions(links) {
-    document.getElementById("atlas-actions").innerHTML = `
-      <div class="atlas-card">
-        <div class="atlas-card-inner">
-          <div class="atlas-card-label">Quick Actions</div>
-          <div class="atlas-actions-grid">
-            ${renderDriveLink("Boarding Pass", links.boarding_pass)}
-            ${renderDriveLink("Hotel", links.hotel)}
-            ${renderDriveLink("Documents", links.documents)}
-            ${renderDriveLink("Packing", links.packing)}
-          </div>
+function renderActions(links) {
+  links = links || {};
+
+  document.getElementById("atlas-actions").innerHTML = `
+    <div class="atlas-card">
+      <div class="atlas-card-inner">
+        <div class="atlas-card-label">Quick Actions</div>
+        <div class="atlas-actions-grid">
+          ${renderQuickActionImageCard({
+            label: "Boarding Pass",
+            sublabel: "탑승권 확인",
+            url: links.boarding_pass,
+            imageSrc: "assets/images/quick-actions/boarding-pass.png",
+            imageAlt: "Boarding Pass"
+          })}
+
+          ${renderQuickActionImageCard({
+            label: "Hotel",
+            sublabel: "호텔 정보 확인",
+            url: links.hotel,
+            imageSrc: "assets/images/quick-actions/hotel.png",
+            imageAlt: "Hotel"
+          })}
+
+          ${renderQuickActionImageCard({
+            label: "Documents",
+            sublabel: "여행 서류 확인",
+            url: links.documents,
+            imageSrc: "assets/images/quick-actions/documents.png",
+            imageAlt: "Documents"
+          })}
+
+          ${renderQuickActionImageCard({
+            label: "Packing",
+            sublabel: "패킹 체크리스트",
+            url: links.packing,
+            imageSrc: "assets/images/quick-actions/packing.png",
+            imageAlt: "Packing"
+          })}
         </div>
       </div>
-    `;
-  }
+    </div>
+  `;
+}
 
-  function renderDriveLink(label, url) {
-    if (!url) {
-      return `<button class="atlas-action-button is-disabled" disabled>${escapeHtml(label)}</button>`;
-    }
+function renderQuickActionImageCard(options) {
+  const label = options.label || "";
+  const sublabel = options.sublabel || "";
+  const url = options.url || "";
+  const imageSrc = options.imageSrc || "";
+  const imageAlt = options.imageAlt || label;
 
+  if (!url) {
     return `
-      <a class="atlas-action-button" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
-        ${escapeHtml(label)}
-      </a>
+      <button class="atlas-action-card atlas-action-card-image is-disabled" disabled>
+        <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
+        <div class="atlas-action-card-text">
+          <div class="atlas-action-card-title">${escapeHtml(label)}</div>
+          <div class="atlas-action-card-sublabel">${escapeHtml(sublabel)}</div>
+        </div>
+      </button>
     `;
   }
 
+  return `
+    <a class="atlas-action-card atlas-action-card-image"
+       href="${escapeHtml(url)}"
+       target="_blank"
+       rel="noopener noreferrer"
+       aria-label="${escapeHtml(label)}">
+      <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
+      <div class="atlas-action-card-text">
+        <div class="atlas-action-card-title">${escapeHtml(label)}</div>
+        <div class="atlas-action-card-sublabel">${escapeHtml(sublabel)}</div>
+      </div>
+    </a>
+  `;
+}
+function renderQuickActionImageCard(options) {
+  const label = options.label || "";
+  const sublabel = options.sublabel || "";
+  const url = options.url || "";
+  const imageSrc = options.imageSrc || "";
+  const imageAlt = options.imageAlt || label;
+
+  if (!url) {
+    return `
+      <button class="atlas-action-card atlas-action-card-image is-disabled" disabled>
+        <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
+      </button>
+    `;
+  }
+
+  return `
+    <a class="atlas-action-card atlas-action-card-image"
+       href="${escapeHtml(url)}"
+       target="_blank"
+       rel="noopener noreferrer"
+       aria-label="${escapeHtml(label)}">
+      <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
+    </a>
+  `;
+}
   async function initializeMap() {
     STATE.places = [
       { id: "home", title: "Home", lat: 37.5665, lng: 126.9780 },
