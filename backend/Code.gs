@@ -40,29 +40,31 @@ function doGet(e) {
     },
     queue: function() {
       return { success: true, records: getQueuedInboxRecords(20) };
+    },
+    travel_memory: function() {
+      const tripId = e && e.parameter && e.parameter.tripId
+        ? e.parameter.tripId
+        : "trip_turkiye_2026";
+
+      const limit = e && e.parameter && e.parameter.limit
+        ? Number(e.parameter.limit)
+        : 10;
+
+      return getAtlasTravelMemoryForDashboard(tripId, limit);
+    },
+    run_batch: function() {
+      const limit = e && e.parameter && e.parameter.limit
+        ? Number(e.parameter.limit)
+        : 5;
+
+      return runAtlasPipelineBatch(limit);
     }
   };
 
   if (action && routes[action]) {
     return createJsonResponse(routes[action]());
   }
-if (action === "travel_memory") {
-  const tripId = e && e.parameter && e.parameter.tripId
-    ? e.parameter.tripId
-    : "trip_turkiye_2026";
-if (action === "run_batch") {
-  const limit = e && e.parameter && e.parameter.limit
-    ? Number(e.parameter.limit)
-    : 5;
 
-  return jsonResponse_(runAtlasPipelineBatch(limit));
-}
-  const limit = e && e.parameter && e.parameter.limit
-    ? Number(e.parameter.limit)
-    : 10;
-
-  return jsonResponse_(getAtlasTravelMemoryForDashboard(tripId, limit));
-}
   return createJsonResponse({
     success: true,
     message: "Atlas backend is running."
