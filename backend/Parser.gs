@@ -82,8 +82,6 @@ function extractTextPreview_(file, record) {
 
   return "";
 }
-  return "";
-}
 function extractPdfText_(fileId) {
   let tempDocId = null;
 
