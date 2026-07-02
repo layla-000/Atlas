@@ -79,7 +79,7 @@ const Atlas = (() => {
       time_card: brief.time_card || {},
       next_transport: brief.next_transport || {}
     });
-    renderActions(brief.drive_links || {});
+renderActions(brief.quick_links || brief.drive_links || {});
   }
 
   async function refreshTravelStatus() {

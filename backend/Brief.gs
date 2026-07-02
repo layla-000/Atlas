@@ -1,8 +1,10 @@
 const ATLAS_BRIEF_LATEST_KEY = "ATLAS_BRIEF_LATEST";
 
 function generateAtlasBrief() {
+  const tripId = "trip_turkiye_2026";
+
   const baseInsights = generateAtlasInsights();
-  const travelMemoryInsights = generateTravelMemoryBriefInsights_("trip_turkiye_2026");
+  const travelMemoryInsights = generateTravelMemoryBriefInsights_(tripId);
 
   const insights = baseInsights.concat(travelMemoryInsights);
   const now = new Date().toISOString();
@@ -18,7 +20,7 @@ function generateAtlasBrief() {
   const title = buildBriefTitle_(highPriority, mediumPriority);
   const summary = buildBriefSummary_(insights);
 
-  const brief = {
+  let brief = {
     id: "brief_" + Utilities.getUuid(),
     generatedAt: now,
     title: title,
@@ -33,8 +35,12 @@ function generateAtlasBrief() {
     status: "ready"
   };
 
-  saveAtlasBrief_(brief);
+  const memory = buildBriefPracticalMemoryFromInsights_(tripId, insights);
+
   brief = enrichBriefForDashboardPracticality_(brief, memory);
+
+  saveAtlasBrief_(brief);
+
   return brief;
 }
 
@@ -226,11 +232,13 @@ function enrichBriefForDashboardPracticality_(brief, memory) {
   brief.today_plan = getAtlasTodayPlan_(memory);
   brief.time_card = getAtlasTimeCard_(memory);
   brief.next_transport = getAtlasNextTransport_(memory);
-  brief.drive_links = getAtlasDriveLinks_();
+  brief.quick_links = getAtlasQuickLinks_();
+
+  // 구버전 프론트 호환용. 나중에 완전히 안정되면 제거 가능.
+  brief.drive_links = brief.quick_links;
 
   return brief;
 }
-
 function getAtlasTodayPlan_(memory) {
   var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
   var items = [];
@@ -375,14 +383,16 @@ function getAtlasNextTransport_(memory) {
   };
 }
 
-function getAtlasDriveLinks_() {
+function getAtlasQuickLinks_() {
   var props = PropertiesService.getScriptProperties();
 
   return {
     boarding_pass: props.getProperty("ATLAS_DRIVE_BOARDING_PASS_URL") || "",
     hotel: props.getProperty("ATLAS_DRIVE_HOTEL_URL") || "",
     documents: props.getProperty("ATLAS_DRIVE_DOCUMENTS_URL") || "",
-    packing: props.getProperty("ATLAS_DRIVE_PACKING_URL") || ""
+    packing:
+      props.getProperty("ATLAS_PACKING_NOTION_URL") ||
+      "https://app.notion.com/p/5e8e3cbee2d64c578ac981e1969a7a81?v=b51c772da87c4309826a8e2d8e90e096"
   };
 }
 
@@ -462,4 +472,64 @@ function buildAtlasTransportTitle_(obj) {
 
 function pad2_(value) {
   return String(value).padStart(2, "0");
+}
+function buildBriefPracticalMemoryFromInsights_(tripId, insights) {
+  const memory = {
+    currentTrip: {
+      id: tripId,
+      timezone: "Europe/Istanbul",
+      localTimeLabel: "튀르키예 시간"
+    },
+    knowledgeObjects: []
+  };
+
+  (insights || []).forEach(function(insight) {
+    if (!insight) return;
+
+    // 1) 호텔 예약
+    if (insight.type === "hotel_booking") {
+      const message = insight.message || "";
+
+      const hotelMatch = message.match(/^(.+?) 숙박 정보/);
+      const dateMatch = message.match(/\((.+?)~(.+?)\)/);
+
+      memory.knowledgeObjects.push({
+        objectType: "hotel_booking",
+        hotelName: hotelMatch ? hotelMatch[1] : "숙소",
+        checkIn: dateMatch ? dateMatch[1].trim() : "",
+        checkOut: dateMatch ? dateMatch[2].trim() : "",
+        location: ""
+      });
+
+      return;
+    }
+
+    // 2) 항공 / 기차 / 버스 예약
+    if (
+      insight.type === "flight_booking" ||
+      insight.type === "train_ticket" ||
+      insight.type === "bus_ticket"
+    ) {
+      const objectType =
+        insight.type === "flight_booking" ? "flight_booking" :
+        insight.type === "train_ticket" ? "train_ticket" :
+        "bus_ticket";
+
+      memory.knowledgeObjects.push({
+        objectType: objectType,
+        title: insight.message || "다음 이동",
+        departureDate: insight.departureDate || insight.date || "",
+        departureTime: insight.departureTime || insight.time || "",
+        departurePlace: insight.departurePlace || "",
+        arrivalPlace: insight.arrivalPlace || "",
+        flightNo: insight.flightNo || "",
+        trainNo: insight.trainNo || "",
+        busNo: insight.busNo || ""
+      });
+
+      return;
+    }
+  });
+
+  return memory;
 }
