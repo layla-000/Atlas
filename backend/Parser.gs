@@ -74,5 +74,42 @@ function extractTextPreview_(file, record) {
     return file.getBlob().getDataAsString().slice(0, 5000);
   }
 
+  if (mimeType === MimeType.PDF || mimeType === "application/pdf") {
+    const text = extractPdfText_(record.fileId);
+    console.log("[Parser] PDF extractedText length:", text.length);
+    return text.slice(0, 50000);
+  }
+
   return "";
+}
+  return "";
+}
+function extractPdfText_(fileId) {
+  let tempDocId = null;
+
+  try {
+    const resource = {
+      title: 'atlas_temp_pdf_extract_' + fileId,
+      mimeType: MimeType.GOOGLE_DOCS
+    };
+
+    const converted = Drive.Files.copy(resource, fileId);
+    tempDocId = converted.id;
+
+    const doc = DocumentApp.openById(tempDocId);
+    return doc.getBody().getText() || '';
+
+  } catch (error) {
+    console.error('[Parser] PDF text extraction failed:', error);
+    return '';
+
+  } finally {
+    if (tempDocId) {
+      try {
+        DriveApp.getFileById(tempDocId).setTrashed(true);
+      } catch (cleanupError) {
+        console.error('[Parser] Temp doc cleanup failed:', cleanupError);
+      }
+    }
+  }
 }
