@@ -66,12 +66,17 @@ function getAtlasInboxRecords(limit) {
 }
 
 function getQueuedInboxRecords(limit) {
-  return getAtlasInboxRecords(limit)
-    .filter(function(record) {
-      return record.status === "queued";
-    });
-}
+  const records = getAtlasInboxRecords();
 
+  const queued = records.filter(function(record) {
+    return (
+      record.status === "queued" &&
+      record.parserStatus === "queued"
+    );
+  });
+
+  return limit ? queued.slice(0, limit) : queued;
+}
 function lockNextInboxRecord() {
   const queued = getQueuedInboxRecords(1);
 
