@@ -243,27 +243,6 @@ button {
     color: #f2b8b8;
 }
 
-.atlas-actions-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    margin-top: 18px;
-}
-
-.atlas-action-button {
-    min-height: 58px;
-    padding: 14px;
-    color: var(--atlas-text);
-    border: 1px solid var(--atlas-border);
-    border-radius: var(--atlas-radius-md);
-    background: rgba(42, 48, 47, 0.72);
-    cursor: pointer;
-}
-
-.atlas-action-button:hover {
-    border-color: rgba(54, 199, 183, 0.7);
-    background: var(--atlas-teal-soft);
-}
 
 @media (min-width: 960px) {
     #atlas-app {
@@ -288,14 +267,6 @@ button {
         height: 100%;
         min-height: 620px;
     }
-
-    #atlas-actions .atlas-card-inner {
-        padding: 18px 22px;
-    }
-
-    .atlas-actions-grid {
-        grid-template-columns: repeat(5, 1fr);
-    }
 }
 
 @media (max-width: 420px) {
@@ -311,10 +282,6 @@ button {
     .atlas-map-frame,
     .atlas-map-canvas {
         min-height: 320px;
-    }
-
-    .atlas-actions-grid {
-        grid-template-columns: 1fr;
     }
     
     #google-map {
@@ -447,113 +414,132 @@ button {
   margin: 0;
   font-size: 12px;
   opacity: 0.75;
-}
-/* Quick Actions - image only cards */
+}/* ============================================================
+   Quick Actions - final image card layout
+   ============================================================ */
+
 #atlas-actions .atlas-card-inner {
-  padding: 18px 20px 20px;
+    padding: 18px 20px 20px;
 }
 
 #atlas-actions .atlas-card-label {
-  margin-bottom: 14px;
+    margin-bottom: 14px;
 }
 
 .atlas-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 0;
 }
 
 .atlas-action-card,
 .atlas-action-card-image {
-  height: 136px;
-  min-height: 136px;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 14px;
-  text-decoration: none;
-  overflow: hidden;
-  transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    background 0.16s ease,
-    box-shadow 0.16s ease;
+    height: 148px;
+    min-height: 148px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.035);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 16px;
+    text-decoration: none;
+    overflow: hidden;
+    transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        background 0.16s ease,
+        box-shadow 0.16s ease;
 }
 
 .atlas-action-card:hover,
 .atlas-action-card-image:hover {
-  transform: translateY(-2px);
-  border-color: rgba(45, 220, 202, 0.28);
-  background: rgba(255,255,255,0.055);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.16);
+    transform: translateY(-2px);
+    border-color: rgba(45, 220, 202, 0.28);
+    background: rgba(255,255,255,0.055);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.16);
 }
 
 .atlas-action-card.is-disabled {
-  opacity: 0.36;
-  cursor: not-allowed;
+    opacity: 0.36;
+    cursor: not-allowed;
 }
 
 .atlas-action-card-visual {
-  display: block;
-  width: 100%;
-  max-width: 250px;
-  height: 104px;
-  object-fit: contain;
-  border-radius: 14px;
+    display: block;
+    width: 100%;
+    max-width: 260px;
+    height: 116px;
+    object-fit: contain;
+    border-radius: 16px;
 }
 
-/* Hide old text if any old markup remains */
+/* 혹시 예전 텍스트 마크업이 남아 있어도 안 보이게 */
 .atlas-action-card-text,
 .atlas-action-card-title,
 .atlas-action-card-sublabel,
 .atlas-action-card strong,
 .atlas-action-card span {
-  display: none;
+    display: none;
+}
+
+/* Desktop wide */
+@media (min-width: 1200px) {
+    .atlas-action-card,
+    .atlas-action-card-image {
+        height: 156px;
+        min-height: 156px;
+    }
+
+    .atlas-action-card-visual {
+        max-width: 270px;
+        height: 122px;
+    }
 }
 
 /* Tablet */
 @media (max-width: 960px) {
-  .atlas-actions-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+    .atlas-actions-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
 
-  .atlas-action-card,
-  .atlas-action-card-image {
-    height: 128px;
-    min-height: 128px;
-  }
+    .atlas-action-card,
+    .atlas-action-card-image {
+        height: 132px;
+        min-height: 132px;
+        border-radius: 18px;
+    }
 
-  .atlas-action-card-visual {
-    height: 98px;
-    max-width: 230px;
-  }
+    .atlas-action-card-visual {
+        height: 98px;
+        max-width: 220px;
+    }
 }
 
 /* Mobile */
 @media (max-width: 560px) {
-  #atlas-actions .atlas-card-inner {
-    padding: 16px;
-  }
+    #atlas-actions .atlas-card-inner {
+        padding: 16px;
+    }
 
-  .atlas-actions-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
+    .atlas-actions-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
 
-  .atlas-action-card,
-  .atlas-action-card-image {
-    height: 112px;
-    min-height: 112px;
-    border-radius: 16px;
-    padding: 8px;
-  }
+    .atlas-action-card,
+    .atlas-action-card-image {
+        height: 108px;
+        min-height: 108px;
+        border-radius: 16px;
+        padding: 8px;
+    }
 
-  .atlas-action-card-visual {
-    height: 88px;
-    max-width: 170px;
-    border-radius: 12px;
-  }
+    .atlas-action-card-visual {
+        height: 80px;
+        max-width: 160px;
+        border-radius: 12px;
+    }
 }
