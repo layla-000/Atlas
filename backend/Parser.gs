@@ -11,6 +11,9 @@ function runAtlasParserOnce() {
 
   try {
    const parsed = parseInboxRecord(record);
+const documentIntel = analyzeTravelDocument(parsed);
+parsed.documentIntel = documentIntel;
+
 const knowledge = generateKnowledgeObjects(parsed, record);
 
 const completed = completeInboxRecord(record.id, {
@@ -19,6 +22,7 @@ const completed = completeInboxRecord(record.id, {
   memoryStatus: "pending",
   knowledgeStatus: "generated",
   parsed: parsed,
+  documentIntel: documentIntel,
   knowledge: knowledge
 });
 
