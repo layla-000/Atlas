@@ -216,10 +216,8 @@ function renderActions(links) {
     </div>
   `;
 }
-
 function renderQuickActionImageCard(options) {
   const label = options.label || "";
-  const sublabel = options.sublabel || "";
   const url = options.url || "";
   const imageSrc = options.imageSrc || "";
   const imageAlt = options.imageAlt || label;
@@ -228,10 +226,6 @@ function renderQuickActionImageCard(options) {
     return `
       <button class="atlas-action-card atlas-action-card-image is-disabled" disabled>
         <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
-        <div class="atlas-action-card-text">
-          <div class="atlas-action-card-title">${escapeHtml(label)}</div>
-          <div class="atlas-action-card-sublabel">${escapeHtml(sublabel)}</div>
-        </div>
       </button>
     `;
   }
@@ -243,14 +237,9 @@ function renderQuickActionImageCard(options) {
        rel="noopener noreferrer"
        aria-label="${escapeHtml(label)}">
       <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
-      <div class="atlas-action-card-text">
-        <div class="atlas-action-card-title">${escapeHtml(label)}</div>
-        <div class="atlas-action-card-sublabel">${escapeHtml(sublabel)}</div>
-      </div>
     </a>
   `;
 }
-
   async function initializeMap() {
     STATE.places = [
       { id: "home", title: "Home", lat: 37.5665, lng: 126.9780 },
