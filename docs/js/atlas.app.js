@@ -420,7 +420,7 @@ function renderAtlasScheduleFields(type) {
   const commonTop = `
     <label>
       Trip ID
-      <input name="tripId" value="turkiye_2026" required />
+      <input name="tripId" value="trip_turkiye_2026" required />
     </label>
 
     <label>
@@ -626,9 +626,10 @@ async function sendAtlasSchedulePayload(payload) {
     throw new Error("서버 응답을 JSON으로 읽을 수 없어요: " + text);
   }
 
-  if (!json.ok) {
-    throw new Error(json.error || "Unknown schedule error");
-  }
+if (!json.ok) {
+  console.error("Atlas schedule server error:", json);
+  throw new Error(json.error || json.message || JSON.stringify(json));
+}
 
   return json;
 }

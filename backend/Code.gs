@@ -26,13 +26,13 @@ if (body.action === "create_schedule") {
       inboxId: uploadResult.inboxId,
       pipeline: pipelineResult
     });
-  } catch (error) {
-    return createJsonResponse({
-      success: false,
-      message: error.message,
-      stack: error.stack || ""
-    });
-  }
+ } catch (error) {
+  return createAtlasJsonResponse({
+    ok: false,
+    error: error && error.message ? error.message : String(error),
+    stack: error && error.stack ? error.stack : ""
+  });
+}
 }
 
 function doGet(e) {
