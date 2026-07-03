@@ -1,3 +1,20 @@
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
 :root {
   --bg: #07162d;
   --bg2: #10284d;
@@ -336,4 +353,17 @@ body {
   .date-button {
     min-width: 72px;
   }
+  .schedule-carousel {
+  width: 100%;
+  overflow: hidden;
+}
+
+.day-track {
+  width: 100%;
+}
+
+.day-card {
+  width: 100%;
+  min-width: 100%;
+}
 }
