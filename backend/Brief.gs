@@ -464,16 +464,16 @@ function buildNextTransportFromMemory_(memory, insights) {
 function buildTransportCandidate_(entity, now) {
   const props = entity.properties || {};
 
- const departureDate =
-  props.departure_date ||
-  props.departureDate ||
-  props.date ||
-  props.travel_date ||
-  props.travelDate ||
-  props.start_date ||
-  props.startDate ||
-  props.departure ||
-  "";
+  const departureDate =
+    props.departure_date ||
+    props.departureDate ||
+    props.date ||
+    props.travel_date ||
+    props.travelDate ||
+    props.start_date ||
+    props.startDate ||
+    props.departure ||
+    "";
 
   if (!departureDate) return null;
 
@@ -485,11 +485,31 @@ function buildTransportCandidate_(entity, now) {
   }
 
   const transportType = mapTransportType_(entity.type);
-const operator = props.operator || props.airline || props.carrier || props.railway || props.company || "";
-const number = props.flight_number || props.flightNumber || props.train_number || props.trainNumber || props.bus_number || props.busNumber || props.reference || props.bookingReference || "";
-const departurePlace = props.departure_place || props.departurePlace || props.from || props.origin || props.departure_station || props.departureStation || props.departure_airport || props.departureAirport || "";
-const arrivalPlace = props.arrival_place || props.arrivalPlace || props.to || props.destination || props.arrival_station || props.arrivalStation || props.arrival_airport || props.arrivalAirport || "";
-const arrivalTime = normalizeTimeText_(props.arrival_time || props.arrivalTime || "");
+  const operator = props.operator || props.airline || props.carrier || props.railway || props.company || "";
+
+  const number =
+    props.flight_number ||
+    props.flightNumber ||
+    props.flight_no ||
+    props.flightNo ||
+    props.flight ||
+    props.flight_code ||
+    props.flightCode ||
+    props.transport_number ||
+    props.transportNumber ||
+    props.train_number ||
+    props.trainNumber ||
+    props.bus_number ||
+    props.busNumber ||
+    props.number ||
+    props.code ||
+    props.reference ||
+    props.bookingReference ||
+    "";
+
+  const departurePlace = props.departure_place || props.departurePlace || props.from || props.origin || props.departure_station || props.departureStation || props.departure_airport || props.departureAirport || "";
+  const arrivalPlace = props.arrival_place || props.arrivalPlace || props.to || props.destination || props.arrival_station || props.arrivalStation || props.arrival_airport || props.arrivalAirport || "";
+  const arrivalTime = normalizeTimeText_(props.arrival_time || props.arrivalTime || "");
   const reference = number || props.reference || "";
   const title = buildTransportTitle_(transportType, operator, number, departurePlace, arrivalPlace);
 
@@ -528,6 +548,9 @@ function buildTransportCandidateFromInsight_(insight, now) {
     insight.summary,
     insight.action
   ].filter(Boolean).join(" ");
+
+  const flightNoMatch = text.match(/\b([A-Z]{2}\s?\d{2,4})\b/);
+const flightNumber = flightNoMatch ? flightNoMatch[1].replace(/\s+/g, "") : "";
 
   const routeMatch = text.match(/([A-Z]{3})\s*→\s*([A-Z]{3})/);
   if (!routeMatch) return null;
