@@ -132,10 +132,11 @@ await renderStatus({
       </div>
     `;
   }
-  async function renderStatus(data) {
+   async function renderStatus(data) {
     data = data || {};
 
     const timeCard = data.time_card || {};
+    const transport = data.next_transport || {};
     const weather = await getCurrentWeatherStatusItem();
 
     document.getElementById("atlas-status").innerHTML = `
@@ -161,8 +162,12 @@ await renderStatus({
           </div>
 
           <div class="atlas-next-transport">
-            <strong>${escapeHtml(weather.summary)}</strong>
-            <p>${escapeHtml(weather.detail)}</p>
+            <strong>${escapeHtml(transport.title || transport.flight_number || transport.vehicle || "예정된 교통편이 아직 없어요.")}</strong>
+            <p>
+              ${escapeHtml(transport.departure_place || "-")}
+              →
+              ${escapeHtml(transport.arrival_place || "-")}
+            </p>
           </div>
         </div>
       </div>
