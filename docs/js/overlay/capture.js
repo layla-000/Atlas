@@ -119,3 +119,4 @@ const AtlasCapture = (() => {
         initialize
     };
 })();
+window.AtlasCapture = AtlasCapture;
