@@ -21,7 +21,7 @@ Returns queued Inbox records..
 
 ## POST upload
 
-Uploads a file payload and creates an Inbox record..
+Uploads a file payload and creates an Inbox record.
 
 Response includes:
 - fileId
