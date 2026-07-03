@@ -14,6 +14,7 @@ const AtlasMaps = (() => {
     routeRenderer: null,
     places: [],
     geocoder: null,
+      infoWindow: null,
     isReady: false
   };
 
@@ -63,6 +64,7 @@ const AtlasMaps = (() => {
 
     STATE.places = options.places || [];
     STATE.geocoder = new maps.Geocoder();
+    STATE.infoWindow = new maps.InfoWindow();
 
     const initialPlace = firstValidLatLngPlace_(STATE.places) || {
       lat: 37.5665,
@@ -196,25 +198,63 @@ const AtlasMaps = (() => {
   }
 
   function renderMarkers() {
-    clearMarkers();
+  clearMarkers();
 
-    if (!STATE.map || !window.google || !window.google.maps) return;
+  if (!STATE.map || !window.google || !window.google.maps) return;
 
-    STATE.places.forEach((place) => {
-      if (!hasValidLatLng_(place)) return;
+  STATE.places.forEach((place) => {
+    if (!hasValidLatLng_(place)) return;
 
-      const marker = new window.google.maps.Marker({
-        map: STATE.map,
-        position: {
-          lat: Number(place.lat),
-          lng: Number(place.lng)
-        },
-        title: place.title || place.query || "Atlas place"
-      });
-
-      STATE.markers.push(marker);
+    const marker = new window.google.maps.Marker({
+      map: STATE.map,
+      position: {
+        lat: Number(place.lat),
+        lng: Number(place.lng)
+      },
+      title: place.title || place.query || "Atlas place"
     });
-  }
+
+    marker.addListener("click", () => {
+      openPlaceInfoWindow_(marker, place);
+    });
+
+    STATE.markers.push(marker);
+  });
+}
+
+function openPlaceInfoWindow_(marker, place) {
+  if (!STATE.infoWindow) return;
+
+  const category = escapeHtml_(place.category || "장소");
+  const title = escapeHtml_(place.title || place.query || "Atlas place");
+  const address = escapeHtml_(place.address || place.query || "");
+  const schedule = escapeHtml_(place.schedule || "");
+  const source = escapeHtml_(place.source || "");
+
+  STATE.infoWindow.setContent(`
+    <div class="atlas-map-info">
+      <div class="atlas-map-info-category">${category}</div>
+      <strong>${title}</strong>
+      ${address ? `<p>${address}</p>` : ""}
+      ${schedule ? `<p>일정: ${schedule}</p>` : ""}
+      ${source ? `<small>출처: ${source}</small>` : ""}
+    </div>
+  `);
+
+  STATE.infoWindow.open({
+    map: STATE.map,
+    anchor: marker
+  });
+}
+
+function escapeHtml_(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
   function clearMarkers() {
     STATE.markers.forEach((marker) => marker.setMap(null));

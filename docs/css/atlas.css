@@ -543,3 +543,39 @@ button {
         border-radius: 12px;
     }
 }
+.atlas-map-info {
+  min-width: 180px;
+  max-width: 260px;
+  color: #141817;
+  font-family: var(--atlas-font);
+}
+
+.atlas-map-info-category {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(54, 199, 183, 0.18);
+  color: #12645b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.atlas-map-info strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.atlas-map-info p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.atlas-map-info small {
+  display: block;
+  margin-top: 8px;
+  color: #66706d;
+  font-size: 11px;
+}
