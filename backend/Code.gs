@@ -10,7 +10,13 @@ function doPost(e) {
     if (action === "remove_manual_map_place") {
       return createJsonResponse(removeAtlasManualMapPlace(body));
     }
-
+if (body.action === "get_full_schedule") {
+  return createJsonResponse({
+    success: true,
+    ok: true,
+    schedule: getFullScheduleFromAtlasMemory_(body.payload || {})
+  });
+}
     if (body.action === "create_schedule") {
       return createJsonResponse(handleAtlasScheduleCreate(body.payload));
     }
@@ -356,4 +362,103 @@ function getNestedValue_(object, path) {
   }
 
   return current || "";
+}
+function getFullScheduleFromAtlasMemory_(payload) {
+  payload = payload || {};
+
+  const tripId = payload.tripId || "trip_turkiye_2026";
+  const startDate = payload.startDate || "2026-09-23";
+  const endDate = payload.endDate || "2026-10-02";
+
+  const memoryResult = getAtlasTravelMemoryForDashboard(tripId, 200);
+
+  const records =
+    memoryResult.records ||
+    memoryResult.memory ||
+    memoryResult.items ||
+    memoryResult.data ||
+    [];
+
+  return records
+    .map(function(record) {
+      const startAt =
+        record.startAt ||
+        record.start_at ||
+        record.departureTime ||
+        record.departure_time ||
+        record.checkIn ||
+        record.check_in ||
+        record.date ||
+        "";
+
+      const endAt =
+        record.endAt ||
+        record.end_at ||
+        record.arrivalTime ||
+        record.arrival_time ||
+        record.checkOut ||
+        record.check_out ||
+        "";
+
+      const date =
+        record.date ||
+        String(startAt).slice(0, 10);
+
+      return {
+        id: record.id || record.memoryId || record.objectId || "",
+        tripId: record.tripId || record.trip_id || tripId,
+        date: date,
+        startAt: startAt,
+        endAt: endAt,
+        title: record.title || record.name || record.label || "일정",
+        location:
+          record.location ||
+          record.place ||
+          record.address ||
+          record.departurePlace ||
+          record.departure_place ||
+          record.arrivalPlace ||
+          record.arrival_place ||
+          "",
+        scheduleType:
+          record.scheduleType ||
+          record.schedule_type ||
+          record.type ||
+          record.category ||
+          "etc",
+        notes: record.notes || record.memo || record.description || "",
+        route:
+          record.route ||
+          buildAtlasScheduleRoute_(record) ||
+          ""
+      };
+    })
+    .filter(function(item) {
+      return item.date >= startDate && item.date <= endDate;
+    })
+    .sort(function(a, b) {
+      const aKey = String(a.startAt || a.date || "");
+      const bKey = String(b.startAt || b.date || "");
+      return aKey.localeCompare(bKey);
+    });
+}
+
+function buildAtlasScheduleRoute_(record) {
+  const departure =
+    record.departurePlace ||
+    record.departure_place ||
+    record.departure ||
+    "";
+
+  const arrival =
+    record.arrivalPlace ||
+    record.arrival_place ||
+    record.arrival ||
+    "";
+
+  if (departure && arrival) {
+    return departure + " → " + arrival;
+  }
+
+  return "";
 }

@@ -226,46 +226,53 @@ await renderStatus({
     );
   }
 
-  function renderActions(links) {
-    links = links || {};
+ function renderActions(links) {
+  links = links || {};
 
-    document.getElementById("atlas-actions").innerHTML = `
-      <div class="atlas-card">
-        <div class="atlas-card-inner">
-          <div class="atlas-card-label">Quick Actions</div>
-          <div class="atlas-actions-grid">
-            ${renderQuickActionImageCard({
-              label: "Boarding Pass",
-              url: links.boarding_pass,
-              imageSrc: "assets/images/quick-actions/bp.png",
-              imageAlt: "Boarding Pass"
-            })}
+  document.getElementById("atlas-actions").innerHTML = `
+    <div class="atlas-card">
+      <div class="atlas-card-inner">
+        <div class="atlas-card-label">Quick Actions</div>
+        <div class="atlas-actions-grid">
+  ${renderQuickActionImageCard({
+  label: "Schedule",
+  url: links.schedule || "schedule.html",
+  imageSrc: "assets/images/quick-actions/schedule.png",
+  imageAlt: "Schedule"
+})}
 
-            ${renderQuickActionImageCard({
-              label: "Hotel",
-              url: links.hotel,
-              imageSrc: "assets/images/quick-actions/hotel.png",
-              imageAlt: "Hotel"
-            })}
+          ${renderQuickActionImageCard({
+            label: "Boarding Pass",
+            url: links.boarding_pass,
+            imageSrc: "assets/images/quick-actions/bp.png",
+            imageAlt: "Boarding Pass"
+          })}
 
-            ${renderQuickActionImageCard({
-              label: "Documents",
-              url: links.documents,
-              imageSrc: "assets/images/quick-actions/documents.png",
-              imageAlt: "Documents"
-            })}
+          ${renderQuickActionImageCard({
+            label: "Hotel",
+            url: links.hotel,
+            imageSrc: "assets/images/quick-actions/hotel.png",
+            imageAlt: "Hotel"
+          })}
 
-            ${renderQuickActionImageCard({
-              label: "Packing",
-              url: links.packing,
-              imageSrc: "assets/images/quick-actions/packing.png",
-              imageAlt: "Packing"
-            })}
-          </div>
+          ${renderQuickActionImageCard({
+            label: "Documents",
+            url: links.documents,
+            imageSrc: "assets/images/quick-actions/documents.png",
+            imageAlt: "Documents"
+          })}
+
+          ${renderQuickActionImageCard({
+            label: "Packing",
+            url: links.packing,
+            imageSrc: "assets/images/quick-actions/packing.png",
+            imageAlt: "Packing"
+          })}
         </div>
       </div>
-    `;
-  }
+    </div>
+  `;
+}
 
   function renderQuickActionImageCard(options) {
     const label = options.label || "";
