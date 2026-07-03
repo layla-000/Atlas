@@ -8,15 +8,16 @@ const AtlasMaps = (() => {
     routeColor: "#36c7b7"
   };
 
-  const STATE = {
-    map: null,
-    markers: [],
-    routeRenderer: null,
-    places: [],
-    infoWindow: null,
-    isReady: false,
-    placesService: null,
-  };
+const STATE = {
+  map: null,
+  markers: [],
+  routeRenderer: null,
+  places: [],
+  infoWindow: null,
+  searchBox: null,
+  placesService: null,
+  isReady: false
+};
 
   function getApiKey() {
     if (window.AtlasConfig?.maps?.apiKey) return window.AtlasConfig.maps.apiKey;
@@ -85,7 +86,7 @@ script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=pl
 
     STATE.places = filterKoreaPlaces(options.places || []);
     STATE.infoWindow = new maps.InfoWindow();
-    STATE.placesService = new maps.places.PlacesService(STATE.map);
+  
 
     const initialPlace = STATE.places[0] || { lat: 41.0082, lng: 28.9784, title: "Istanbul" };
 
@@ -97,8 +98,9 @@ script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=pl
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
-      searchBox: null
     });
+
+      STATE.placesService = new maps.places.PlacesService(STATE.map);
 
     STATE.routeRenderer = new maps.DirectionsRenderer({
       map: STATE.map,
