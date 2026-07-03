@@ -79,7 +79,7 @@ const Atlas = (() => {
       time_card: brief.time_card || {},
       next_transport: brief.next_transport || {}
     });
-renderActions(brief.quick_links || brief.drive_links || {});
+    renderActions(brief.quick_links || brief.drive_links || {});
   }
 
   async function refreshTravelStatus() {
@@ -172,108 +172,98 @@ renderActions(brief.quick_links || brief.drive_links || {});
     `;
   }
 
-function renderActions(links) {
-  links = links || {};
+  function renderActions(links) {
+    links = links || {};
 
-  document.getElementById("atlas-actions").innerHTML = `
-    <div class="atlas-card">
-      <div class="atlas-card-inner">
-        <div class="atlas-card-label">Quick Actions</div>
-        <div class="atlas-actions-grid">
-          ${renderQuickActionImageCard({
-            label: "Boarding Pass",
-            sublabel: "탑승권 확인",
-            url: links.boarding_pass,
-            imageSrc: "assets/images/quick-actions/bp.png",
-            imageAlt: "Boarding Pass"
-          })}
+    document.getElementById("atlas-actions").innerHTML = `
+      <div class="atlas-card">
+        <div class="atlas-card-inner">
+          <div class="atlas-card-label">Quick Actions</div>
+          <div class="atlas-actions-grid">
+            ${renderQuickActionImageCard({
+              label: "Boarding Pass",
+              url: links.boarding_pass,
+              imageSrc: "assets/images/quick-actions/bp.png",
+              imageAlt: "Boarding Pass"
+            })}
 
-          ${renderQuickActionImageCard({
-            label: "Hotel",
-            sublabel: "호텔 정보 확인",
-            url: links.hotel,
-            imageSrc: "assets/images/quick-actions/hotel.png",
-            imageAlt: "Hotel"
-          })}
+            ${renderQuickActionImageCard({
+              label: "Hotel",
+              url: links.hotel,
+              imageSrc: "assets/images/quick-actions/hotel.png",
+              imageAlt: "Hotel"
+            })}
 
-          ${renderQuickActionImageCard({
-            label: "Documents",
-            sublabel: "여행 서류 확인",
-            url: links.documents,
-            imageSrc: "assets/images/quick-actions/documents.png",
-            imageAlt: "Documents"
-          })}
+            ${renderQuickActionImageCard({
+              label: "Documents",
+              url: links.documents,
+              imageSrc: "assets/images/quick-actions/documents.png",
+              imageAlt: "Documents"
+            })}
 
-          ${renderQuickActionImageCard({
-            label: "Packing",
-            sublabel: "패킹 체크리스트",
-            url: links.packing,
-            imageSrc: "assets/images/quick-actions/packing.png",
-            imageAlt: "Packing"
-          })}
+            ${renderQuickActionImageCard({
+              label: "Packing",
+              url: links.packing,
+              imageSrc: "assets/images/quick-actions/packing.png",
+              imageAlt: "Packing"
+            })}
+          </div>
         </div>
       </div>
-    </div>
-  `;
-}
-function renderQuickActionImageCard(options) {
-  const label = options.label || "";
-  const url = options.url || "";
-  const imageSrc = options.imageSrc || "";
-  const imageAlt = options.imageAlt || label;
-
-  if (!url) {
-    return `
-      <button class="atlas-action-card atlas-action-card-image is-disabled" disabled>
-        <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
-      </button>
     `;
   }
 
-  return `
-    <a class="atlas-action-card atlas-action-card-image"
-       href="${escapeHtml(url)}"
-       target="_blank"
-       rel="noopener noreferrer"
-       aria-label="${escapeHtml(label)}">
-      <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
-    </a>
-  `;
-}
- async function initializeMap() {
-  let places = [];
+  function renderQuickActionImageCard(options) {
+    const label = options.label || "";
+    const url = options.url || "";
+    const imageSrc = options.imageSrc || "";
+    const imageAlt = options.imageAlt || label;
 
-  if (window.AtlasAPI && AtlasAPI.getMapPlaces) {
-    try {
-      places = await AtlasAPI.getMapPlaces();
-      console.log("ATLAS MAP PLACES RAW", places);
-    } catch (error) {
-      console.warn("Failed to load Atlas map places", error);
+    if (!url) {
+      return `
+        <button class="atlas-action-card atlas-action-card-image is-disabled" disabled>
+          <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
+        </button>
+      `;
     }
+
+    return `
+      <a class="atlas-action-card atlas-action-card-image"
+         href="${escapeHtml(url)}"
+         target="_blank"
+         rel="noopener noreferrer"
+         aria-label="${escapeHtml(label)}">
+        <img class="atlas-action-card-visual" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}">
+      </a>
+    `;
   }
 
-  if (!places || places.length === 0) {
-    places = [
-      { id: "home", title: "Seoul", lat: 37.5665, lng: 126.9780, category: "장소" },
-      { id: "airport", title: "Incheon Airport", lat: 37.4602, lng: 126.4407, category: "공항" }
-    ];
+  async function initializeMap() {
+    let places = [];
+
+    if (window.AtlasAPI && AtlasAPI.getMapPlaces) {
+      try {
+        places = await AtlasAPI.getMapPlaces();
+        console.log("ATLAS MAP PLACES RAW", places);
+      } catch (error) {
+        console.warn("Failed to load Atlas map places", error);
+      }
+    }
+
+    if (!places || places.length === 0) {
+      places = [
+        { id: "home", title: "Seoul", lat: 37.5665, lng: 126.9780, category: "장소" },
+        { id: "airport", title: "Incheon Airport", lat: 37.4602, lng: 126.4407, category: "공항" }
+      ];
+    }
+
+    STATE.places = places;
+
+    await AtlasMaps.initMap({
+      elementId: "google-map",
+      places: STATE.places
+    });
   }
-
-  STATE.places = places;
-
-  await AtlasMaps.initMap({
-    elementId: "google-map",
-    places: STATE.places
-  });
-}
-
-  STATE.places = places;
-
-  await AtlasMaps.initMap({
-    elementId: "google-map",
-    places: STATE.places
-  });
-}
 
   function bindEvents() {
     document.addEventListener("click", (event) => {
