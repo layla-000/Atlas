@@ -379,10 +379,8 @@ function initPlaceSearchControl_() {
   STATE.searchBox = autocomplete;
 }
 
-async function addGooglePlaceToAtlasMap_(googlePlace) {
-  if (!googlePlace || !googlePlace.geometry || !googlePlace.geometry.location) {
-    return;
-  }
+function addGooglePlaceToAtlasMap_(googlePlace) {
+  if (!googlePlace || !googlePlace.geometry || !googlePlace.geometry.location) return;
 
   const location = googlePlace.geometry.location;
 
@@ -402,12 +400,49 @@ async function addGooglePlaceToAtlasMap_(googlePlace) {
     placeId: googlePlace.place_id || ""
   };
 
+  showPendingPlaceInfoWindow_(place);
+}
+function showPendingPlaceInfoWindow_(place) {
+  if (!STATE.map || !STATE.infoWindow) return;
+
+  const marker = new window.google.maps.Marker({
+    map: STATE.map,
+    position: { lat: Number(place.lat), lng: Number(place.lng) },
+    title: place.title || "검색한 장소"
+  });
+
+  marker.__atlasPending = true;
+
+  STATE.infoWindow.setContent(`
+    <div class="atlas-map-info">
+      <div class="atlas-map-info-category">${escapeHtml_(place.category || "장소")}</div>
+      <strong>${escapeHtml_(place.title || "검색한 장소")}</strong>
+      ${place.address ? `<p>${escapeHtml_(place.address)}</p>` : ""}
+      <button class="atlas-map-add-button" id="atlas-map-add-place-button">
+        + Add to Atlas
+      </button>
+    </div>
+  `);
+
+  STATE.infoWindow.open({ map: STATE.map, anchor: marker });
+
+  window.setTimeout(() => {
+    const button = document.getElementById("atlas-map-add-place-button");
+    if (!button) return;
+
+    button.addEventListener("click", () => {
+      confirmAddPendingPlace_(place, marker);
+    });
+  }, 0);
+
+  STATE.map.panTo({ lat: Number(place.lat), lng: Number(place.lng) });
+  STATE.map.setZoom(CONFIG.focusedZoom);
+}
+
+function confirmAddPendingPlace_(place, marker) {
   const exists = STATE.places.some((item) => {
     if (!item) return false;
-
-    if (place.placeId && item.placeId && place.placeId === item.placeId) {
-      return true;
-    }
+    if (place.placeId && item.placeId && place.placeId === item.placeId) return true;
 
     return (
       String(item.title || "").trim().toLowerCase() === String(place.title || "").trim().toLowerCase() &&
@@ -415,20 +450,21 @@ async function addGooglePlaceToAtlasMap_(googlePlace) {
     );
   });
 
-  if (exists) {
-    return;
+  if (!exists) {
+    STATE.places.push(place);
+    saveManualPlacesToStorage_();
   }
 
-  STATE.places.push(place);
-  saveManualPlacesToStorage_();
+  if (marker) marker.setMap(null);
+
   renderMarkers();
 
-  if (STATE.map) {
-    STATE.map.panTo({
-      lat: place.lat,
-      lng: place.lng
-    });
-    STATE.map.setZoom(CONFIG.focusedZoom);
+  const savedMarker = STATE.markers.find((item) => {
+    return item.getTitle && item.getTitle() === place.title;
+  });
+
+  if (savedMarker) {
+    openPlaceInfoWindow_(savedMarker, place);
   }
 }
 function getAtlasManualPlacesStorageKey_() {
