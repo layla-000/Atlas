@@ -1,27 +1,20 @@
 window.AtlasAPI = (() => {
   function getBackendEndpoint() {
-    if (!window.AtlasConfig || !window.AtlasConfig.backend) {
-      return "";
-    }
-
+    if (!window.AtlasConfig || !window.AtlasConfig.backend) return "";
     return window.AtlasConfig.backend.uploadEndpoint || "";
   }
 
-  async function request(action, fallback) {
+  async function request(action, fallback, options) {
     const endpoint = getBackendEndpoint();
+    if (!endpoint) return fallback;
 
-    if (!endpoint) {
-      return fallback;
-    }
+    const url = `${endpoint}?action=${encodeURIComponent(action)}`;
 
     try {
-      const response = await fetch(`${endpoint}?action=${encodeURIComponent(action)}`);
+      const response = await fetch(url, options || {});
       const data = await response.json();
 
-      if (!data || data.success === false) {
-        return fallback;
-      }
-
+      if (!data || data.success === false) return fallback;
       return data;
     } catch (error) {
       console.warn(`AtlasAPI ${action} request failed:`, error);
@@ -34,7 +27,7 @@ window.AtlasAPI = (() => {
       success: true,
       brief: {
         title: "좋은 아침이에요.",
-        summary: "Atlas Brief 연결을 준비하고 있어요. Backend 연결 후 Memory 기반 브리핑이 표시됩니다.",
+        summary: "Atlas Brief 연결을 준비하고 있어요.",
         priority: "normal",
         actions: [],
         status: "demo"
@@ -46,11 +39,7 @@ window.AtlasAPI = (() => {
   }
 
   async function getMemory() {
-    const fallback = {
-      success: true,
-      records: []
-    };
-
+    const fallback = { success: true, records: [] };
     const data = await request("memory", fallback);
     return data.records || [];
   }
@@ -71,36 +60,41 @@ window.AtlasAPI = (() => {
   }
 
   async function getMapPlaces() {
-    const fallback = {
-      success: true,
-      places: []
-    };
-
+    const fallback = { success: true, places: [] };
     const data = await request("map_places", fallback);
-    return data.places || [];
+    return data.places || data.items || [];
   }
-async function getMapPlaces() {
-  return request("map_places");
-}
 
-async function saveManualMapPlace(place) {
-  return request("save_manual_map_place", {
-    method: "POST",
-    body: JSON.stringify(place)
-  });
-}
+  async function saveManualMapPlace(place) {
+    const fallback = { success: false, place: null };
 
-async function removeManualMapPlace(placeId) {
-  return request("remove_manual_map_place", {
-    method: "POST",
-    body: JSON.stringify({ placeId })
-  });
-}
- return {
-  getBrief,
-  getTravelStatus,
-  getMapPlaces,
-  saveManualMapPlace,
-  removeManualMapPlace
-};
+    return request("save_manual_map_place", fallback, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(place || {})
+    });
+  }
+
+  async function removeManualMapPlace(placeId) {
+    const fallback = { success: false };
+
+    return request("remove_manual_map_place", fallback, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify({ placeId })
+    });
+  }
+
+  return {
+    getBrief,
+    getMemory,
+    getTravelStatus,
+    getMapPlaces,
+    saveManualMapPlace,
+    removeManualMapPlace
+  };
 })();

@@ -243,10 +243,10 @@ function renderQuickActionImageCard(options) {
  async function initializeMap() {
   let places = [];
 
-  if (window.AtlasAPI && window.AtlasAPI.getMapPlaces) {
+  if (window.AtlasAPI && AtlasAPI.getMapPlaces) {
     try {
-      const response = await AtlasAPI.getMapPlaces();
-      places = response && response.items ? response.items : [];
+      places = await AtlasAPI.getMapPlaces();
+      console.log("ATLAS MAP PLACES RAW", places);
     } catch (error) {
       console.warn("Failed to load Atlas map places", error);
     }
@@ -258,6 +258,14 @@ function renderQuickActionImageCard(options) {
       { id: "airport", title: "Incheon Airport", lat: 37.4602, lng: 126.4407, category: "공항" }
     ];
   }
+
+  STATE.places = places;
+
+  await AtlasMaps.initMap({
+    elementId: "google-map",
+    places: STATE.places
+  });
+}
 
   STATE.places = places;
 

@@ -1,30 +1,27 @@
 function doPost(e) {
   try {
+    const action = e && e.parameter ? e.parameter.action : "";
+
+    if (action === "save_manual_map_place") {
+      const payload = JSON.parse(e.postData.contents || "{}");
+      return createJsonResponse(saveAtlasManualMapPlace(payload));
+    }
+
+    if (action === "remove_manual_map_place") {
+      const payload = JSON.parse(e.postData.contents || "{}");
+      return createJsonResponse(removeAtlasManualMapPlace(payload));
+    }
+
     const payload = JSON.parse(e.postData.contents);
     const uploadResult = handleAtlasUpload(payload);
-
     const pipelineResult = runAtlasUploadPipelineAfterUpload_(uploadResult);
-if (action === "save_manual_map_place") {
-  const body = getJsonBody_(e);
-  return jsonOutput_(saveAtlasManualMapPlace(body));
-}
 
-if (action === "remove_manual_map_place") {
-  const body = getJsonBody_(e);
-  return jsonOutput_(removeAtlasManualMapPlace(body));
-}
     return createJsonResponse({
       success: true,
       message: uploadResult.message,
       fileUrl: uploadResult.fileUrl,
       fileId: uploadResult.fileId,
       inboxId: uploadResult.inboxId,
-      inboxStatus: uploadResult.inboxStatus,
-      parserStatus: pipelineResult.parserStatus || uploadResult.parserStatus,
-      semanticStatus: pipelineResult.semanticStatus || "unknown",
-      notionStatus: pipelineResult.notionStatus || uploadResult.notionStatus,
-      memoryStatus: pipelineResult.memoryStatus || uploadResult.memoryStatus,
-      briefStatus: pipelineResult.briefStatus || "unknown",
       pipeline: pipelineResult
     });
   } catch (error) {
