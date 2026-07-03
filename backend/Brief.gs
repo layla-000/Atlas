@@ -33,19 +33,24 @@ function generateAtlasBrief() {
 
   const memory = getBriefDashboardMemory_(tripId, 20);
   brief = enrichBriefForDashboardPracticality_(brief, memory);
+  brief = mergeManualScheduleIntoBrief_(brief, tripId, "Europe/Istanbul");
 
   saveAtlasBrief_(brief);
   return brief;
 }
 
 function getLatestAtlasBrief() {
+  const tripId = "trip_turkiye_2026";
   const raw = PropertiesService.getScriptProperties().getProperty(ATLAS_BRIEF_LATEST_KEY);
 
   if (!raw) {
     return generateAtlasBrief();
   }
 
-  return JSON.parse(raw);
+  let brief = JSON.parse(raw);
+  brief = mergeManualScheduleIntoBrief_(brief, tripId, "Europe/Istanbul");
+
+  return brief;
 }
 
 function saveAtlasBrief_(brief) {
@@ -75,21 +80,13 @@ function getBriefDashboardMemory_(tripId, limit) {
 }
 
 function buildBriefTitle_(highPriority, mediumPriority) {
-  if (highPriority.length > 0) {
-    return "확인할 여행 이슈가 있어요.";
-  }
-
-  if (mediumPriority.length > 0) {
-    return "여행 준비 상태를 점검해 볼게요.";
-  }
-
+  if (highPriority.length > 0) return "확인할 여행 이슈가 있어요.";
+  if (mediumPriority.length > 0) return "여행 준비 상태를 점검해 볼게요.";
   return "좋은 아침이에요.";
 }
 
 function buildBriefSummary_(insights) {
-  if (!insights || insights.length === 0) {
-    return "아직 생성된 브리핑이 없어요.";
-  }
+  if (!insights || insights.length === 0) return "아직 생성된 브리핑이 없어요.";
 
   const travelInsights = insights.filter(function(item) {
     return item.id && String(item.id).indexOf("insight_travel_memory_") === 0;
@@ -117,11 +114,9 @@ function generateTravelMemoryBriefInsights_(tripId) {
       item.lowQuality ? "low_quality" : "normal"
     ].join("__");
 
-    if (seen[key]) {
-      return null;
-    }
-
+    if (seen[key]) return null;
     seen[key] = true;
+
     return buildTravelMemoryInsight_(item);
   }).filter(function(insight) {
     return insight !== null;
@@ -129,9 +124,7 @@ function generateTravelMemoryBriefInsights_(tripId) {
 }
 
 function buildTravelMemoryInsight_(item) {
-  if (!item || !item.objectType) {
-    return null;
-  }
+  if (!item || !item.objectType) return null;
 
   const object = item.object || {};
   const sourceDocument = item.sourceDocument || {};
@@ -199,10 +192,7 @@ function buildHotelBriefMessage_(object) {
   const name = object.hotelName || object.name || "숙소 예약";
   const dates = [object.checkIn, object.checkOut].filter(Boolean).join("~");
 
-  if (dates) {
-    return name + " 숙박 정보가 Atlas Memory에 반영되었어요. (" + dates + ")";
-  }
-
+  if (dates) return name + " 숙박 정보가 Atlas Memory에 반영되었어요. (" + dates + ")";
   return name + " 숙소 문서가 Atlas Memory에 반영되었어요.";
 }
 
@@ -236,26 +226,18 @@ function buildFlightBriefMessage_(object) {
       object.arrival_place ||
       object.to ||
       object.destination
-  ]
-    .filter(Boolean)
-    .join(" → ");
+  ].filter(Boolean).join(" → ");
 
   const flightLabel = [airline, flightNumber].filter(Boolean).join(" ");
 
-  if (route) {
-    return flightLabel + " " + route + " 항공 정보가 Atlas Memory에 반영되었어요.";
-  }
-
+  if (route) return flightLabel + " " + route + " 항공 정보가 Atlas Memory에 반영되었어요.";
   return flightLabel + " 항공권 문서가 Atlas Memory에 반영되었어요.";
 }
 
 function buildTourBriefMessage_(object) {
   const name = object.tourName || object.name || "투어 예약";
 
-  if (object.date) {
-    return name + " 투어 정보가 Atlas Memory에 반영되었어요. (" + object.date + ")";
-  }
-
+  if (object.date) return name + " 투어 정보가 Atlas Memory에 반영되었어요. (" + object.date + ")";
   return name + " 투어 문서가 Atlas Memory에 반영되었어요.";
 }
 
@@ -265,10 +247,7 @@ function buildTransportBriefMessage_(object) {
     .join(" → ");
   const name = object.provider || object.operator || object.routeName || object.name || "교통 티켓";
 
-  if (route) {
-    return name + " " + route + " 이동 정보가 Atlas Memory에 반영되었어요.";
-  }
-
+  if (route) return name + " " + route + " 이동 정보가 Atlas Memory에 반영되었어요.";
   return name + " 교통 문서가 Atlas Memory에 반영되었어요.";
 }
 
@@ -283,6 +262,134 @@ function enrichBriefForDashboardPracticality_(brief, memory) {
 
   return brief;
 }
+
+/**
+ * Manual Schedule Timeline merge
+ */
+
+function mergeManualScheduleIntoBrief_(brief, tripId, tripTimezone) {
+  if (!brief || !tripId) return brief;
+
+  const manualTodayPlan = buildAtlasTodayPlanFromManualTimeline_(tripId, tripTimezone);
+  const manualNextTransport = buildAtlasNextTransportFromManualTimeline_(tripId, tripTimezone);
+
+  if (manualTodayPlan.length) {
+    brief.today_plan = manualTodayPlan;
+  }
+
+  if (manualNextTransport) {
+    brief.next_transport = manualNextTransport;
+  }
+
+  return brief;
+}
+
+function getAtlasManualTimelineEventsForTrip_(tripId) {
+  const props = PropertiesService.getScriptProperties();
+  const index = JSON.parse(props.getProperty("ATLAS_TIMELINE_INDEX") || "[]");
+
+  return index.map(function(id) {
+    try {
+      return JSON.parse(props.getProperty("ATLAS_TIMELINE_RECORD__" + id) || "null");
+    } catch (e) {
+      return null;
+    }
+  }).filter(function(event) {
+    return event && event.tripId === tripId;
+  }).sort(function(a, b) {
+    return parseAtlasScheduleDate_(a.startAt).getTime() - parseAtlasScheduleDate_(b.startAt).getTime();
+  });
+}
+
+function buildAtlasTodayPlanFromManualTimeline_(tripId, tripTimezone) {
+  const events = getAtlasManualTimelineEventsForTrip_(tripId);
+  const todayKey = getAtlasTodayKey_(tripTimezone || "Europe/Istanbul");
+
+  const todayEvents = events.filter(function(event) {
+    return toDateKey_(event.startAt) === todayKey;
+  });
+
+  if (!todayEvents.length) return [];
+
+  return todayEvents.slice(0, 5).map(function(event) {
+    return {
+      type: event.timelineType || "manual",
+      label: buildAtlasTodayPlanLabelFromTimeline_(event),
+      title: event.title || "",
+      time: formatAtlasScheduleTime_(event.startAt, tripTimezone),
+      location: event.location || "",
+      sortKey: buildSortKey_(toDateKey_(event.startAt), formatAtlasScheduleTime_(event.startAt, tripTimezone))
+    };
+  }).sort(comparePlanItems_);
+}
+
+function buildAtlasTodayPlanLabelFromTimeline_(event) {
+  if (!event) return "일정";
+
+  if (event.scheduleType === "flight") return "항공";
+  if (event.scheduleType === "hotel") return "호텔";
+  if (event.scheduleType === "train") return "기차";
+  if (event.scheduleType === "bus") return "버스";
+  if (event.scheduleType === "activity") return "액티비티";
+  return "일정";
+}
+
+function buildAtlasNextTransportFromManualTimeline_(tripId, tripTimezone) {
+  const now = new Date();
+  const events = getAtlasManualTimelineEventsForTrip_(tripId);
+
+  const candidates = events.filter(function(event) {
+    if (event.timelineType !== "transport") return false;
+
+    const start = parseAtlasScheduleDate_(event.startAt);
+    return start && !isNaN(start.getTime()) && start.getTime() >= now.getTime();
+  });
+
+  if (!candidates.length) return null;
+
+  candidates.sort(function(a, b) {
+    return parseAtlasScheduleDate_(a.startAt).getTime() - parseAtlasScheduleDate_(b.startAt).getTime();
+  });
+
+  const next = candidates[0];
+  const details = next.details || {};
+
+  return {
+    type: next.scheduleType || "transport",
+    label: "다음 이동",
+    title: next.title || "",
+    departure_place: next.departurePlace || details.departurePlace || "",
+    departure_time: formatAtlasScheduleTime_(next.startAt, tripTimezone),
+    arrival_place: next.arrivalPlace || details.arrivalPlace || "",
+    arrival_time: formatAtlasScheduleTime_(next.endAt, tripTimezone),
+    reference: details.number || ""
+  };
+}
+
+function parseAtlasScheduleDate_(value) {
+  if (!value) return new Date(NaN);
+
+  const text = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(text)) {
+    return new Date(text + ":00");
+  }
+
+  return new Date(text);
+}
+
+function formatAtlasScheduleTime_(value, timezone) {
+  if (!value) return "";
+
+  const date = parseAtlasScheduleDate_(value);
+  if (isNaN(date.getTime())) return "";
+
+  return Utilities.formatDate(date, timezone || "Europe/Istanbul", "HH:mm");
+}
+
+/**
+ * Existing dashboard builders
+ */
 
 function buildTodayPlanFromMemory_(memory) {
   if (!memory || !memory.entities || !memory.entities.length) {
@@ -305,15 +412,11 @@ function buildTodayPlanFromMemory_(memory) {
 
     if (isTransportEntityType_(normalized.type)) {
       const transportItem = extractTodayTransportPlanItem_(normalized, todayKey);
-      if (transportItem) {
-        items.push(transportItem);
-      }
+      if (transportItem) items.push(transportItem);
     }
   });
 
-  if (!items.length) {
-    return [emptyTodayPlanItem_()];
-  }
+  if (!items.length) return [emptyTodayPlanItem_()];
 
   items.sort(comparePlanItems_);
   return items.slice(0, 5);
@@ -377,9 +480,7 @@ function extractTodayTransportPlanItem_(entity, todayKey) {
     toDateKey_(props.travel_date) ||
     toDateKey_(props.start_date);
 
-  if (!departureDate || departureDate !== todayKey) {
-    return null;
-  }
+  if (!departureDate || departureDate !== todayKey) return null;
 
   const transportType = mapTransportType_(entity.type);
   const operator = props.operator || props.airline || props.railway || props.company || "";
@@ -414,30 +515,15 @@ function buildAtlasTimeCard_(memory) {
 }
 
 function getAtlasLocalTimezone_(memory) {
-  if (memory && memory.currentTrip && memory.currentTrip.timezone) {
-    return memory.currentTrip.timezone;
-  }
-
-  if (memory && memory.trip && memory.trip.timezone) {
-    return memory.trip.timezone;
-  }
-
-  if (memory && memory.timezone) {
-    return memory.timezone;
-  }
-
+  if (memory && memory.currentTrip && memory.currentTrip.timezone) return memory.currentTrip.timezone;
+  if (memory && memory.trip && memory.trip.timezone) return memory.trip.timezone;
+  if (memory && memory.timezone) return memory.timezone;
   return "Europe/Istanbul";
 }
 
 function getAtlasLocalTimeLabel_(memory) {
-  if (memory && memory.currentTrip && memory.currentTrip.localTimeLabel) {
-    return memory.currentTrip.localTimeLabel;
-  }
-
-  if (memory && memory.trip && memory.trip.localTimeLabel) {
-    return memory.trip.localTimeLabel;
-  }
-
+  if (memory && memory.currentTrip && memory.currentTrip.localTimeLabel) return memory.currentTrip.localTimeLabel;
+  if (memory && memory.trip && memory.trip.localTimeLabel) return memory.trip.localTimeLabel;
   return "튀르키예 시간";
 }
 
@@ -469,9 +555,7 @@ function buildNextTransportFromMemory_(memory, insights) {
     });
   }
 
-  if (!candidates.length) {
-    return emptyNextTransport_();
-  }
+  if (!candidates.length) return emptyNextTransport_();
 
   candidates.sort(function(a, b) {
     return a.timestamp - b.timestamp;
@@ -510,9 +594,7 @@ function buildTransportCandidate_(entity, now) {
   const departureTime = normalizeTimeText_(props.departure_time || props.time || "");
   const departureDateTime = buildDashboardDateTime_(departureDate, departureTime);
 
-  if (!departureDateTime || departureDateTime.getTime() < now.getTime()) {
-    return null;
-  }
+  if (!departureDateTime || departureDateTime.getTime() < now.getTime()) return null;
 
   const transportType = mapTransportType_(entity.type);
   const operator = props.operator || props.airline || props.carrier || props.railway || props.company || "";
@@ -580,29 +662,29 @@ function buildTransportCandidateFromInsight_(insight, now) {
   ].filter(Boolean).join(" ");
 
   const flightNoMatch = text.match(/\b([A-Z]{2}\s?\d{2,4})\b/);
-const flightNumber = flightNoMatch ? flightNoMatch[1].replace(/\s+/g, "") : "";
+  const flightNumber = flightNoMatch ? flightNoMatch[1].replace(/\s+/g, "") : "";
 
   const routeMatch = text.match(/([A-Z]{3})\s*→\s*([A-Z]{3})/);
   if (!routeMatch) return null;
 
   const carrierMatch = text.match(/(Turkish Airlines|Korean Air|Asiana Airlines|대한항공|아시아나)/i);
 
-return {
-  timestamp: Number.MAX_SAFE_INTEGER,
-  transport_type: normalizeTransportTypeForCard_(insight.type),
-  title: buildTransportTitle_(
-    mapTransportType_(insight.type),
-    carrierMatch ? carrierMatch[1] : "항공편",
-    flightNumber,
-    routeMatch[1],
-    routeMatch[2]
-  ),
-  departure_place: routeMatch[1],
-  departure_time: "",
-  arrival_place: routeMatch[2],
-  arrival_time: "",
-  reference: flightNumber
-};
+  return {
+    timestamp: Number.MAX_SAFE_INTEGER,
+    transport_type: normalizeTransportTypeForCard_(insight.type),
+    title: buildTransportTitle_(
+      mapTransportType_(insight.type),
+      carrierMatch ? carrierMatch[1] : "항공편",
+      flightNumber,
+      routeMatch[1],
+      routeMatch[2]
+    ),
+    departure_place: routeMatch[1],
+    departure_time: "",
+    arrival_place: routeMatch[2],
+    arrival_time: "",
+    reference: flightNumber
+  };
 }
 
 function emptyNextTransport_() {
@@ -677,10 +759,7 @@ function buildDashboardDateTime_(dateText, timeText) {
   const safeTime = normalizeTimeText_(timeText || "23:59") || "23:59";
   const parsed = new Date(dateKey + "T" + safeTime + ":00");
 
-  if (isNaN(parsed.getTime())) {
-    return null;
-  }
-
+  if (isNaN(parsed.getTime())) return null;
   return parsed;
 }
 
@@ -724,14 +803,10 @@ function toDateKey_(value) {
 
   const text = String(value).trim();
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    return text;
-  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
 
   const isoMatch = text.match(/^(\d{4}-\d{2}-\d{2})/);
-  if (isoMatch) {
-    return isoMatch[1];
-  }
+  if (isoMatch) return isoMatch[1];
 
   const slashMatch = text.match(/^(\d{4})[./](\d{1,2})[./](\d{1,2})/);
   if (slashMatch) {
