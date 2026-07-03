@@ -63,9 +63,10 @@ const AtlasMaps = (() => {
       throw new Error(`Map element not found: ${options.elementId}`);
     }
 
-    STATE.places = options.places || [];
-    STATE.geocoder = new maps.Geocoder();
-    STATE.infoWindow = new maps.InfoWindow();
+STATE.places = options.places || [];
+mergeManualPlacesIntoState_();
+STATE.geocoder = new maps.Geocoder();
+STATE.infoWindow = new maps.InfoWindow();
 
     const initialPlace = firstValidLatLngPlace_(STATE.places) || {
       lat: 37.5665,
@@ -419,6 +420,7 @@ async function addGooglePlaceToAtlasMap_(googlePlace) {
   }
 
   STATE.places.push(place);
+  saveManualPlacesToStorage_();
   renderMarkers();
 
   if (STATE.map) {
@@ -428,16 +430,62 @@ async function addGooglePlaceToAtlasMap_(googlePlace) {
     });
     STATE.map.setZoom(CONFIG.focusedZoom);
   }
+}
+function getAtlasManualPlacesStorageKey_() {
+  return "ATLAS_MANUAL_MAP_PLACES__" + getCurrentAtlasTripId_();
+}
 
-  if (window.AtlasAPI && window.AtlasAPI.saveManualMapPlace) {
-    try {
-      await window.AtlasAPI.saveManualMapPlace(place);
-    } catch (error) {
-      console.warn("Failed to save manual Atlas map place", error);
-    }
+function loadManualPlacesFromStorage_() {
+  try {
+    const raw = window.localStorage.getItem(getAtlasManualPlacesStorageKey_());
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn("Failed to load Atlas manual places from localStorage", error);
+    return [];
   }
 }
 
+function saveManualPlacesToStorage_() {
+  try {
+    const manualPlaces = STATE.places.filter((place) => {
+      return place && place.type === "manual_place";
+    });
+
+    window.localStorage.setItem(
+      getAtlasManualPlacesStorageKey_(),
+      JSON.stringify(manualPlaces)
+    );
+  } catch (error) {
+    console.warn("Failed to save Atlas manual places to localStorage", error);
+  }
+}
+
+function mergeManualPlacesIntoState_() {
+  const manualPlaces = loadManualPlacesFromStorage_();
+
+  manualPlaces.forEach((manualPlace) => {
+    if (!manualPlace) return;
+
+    const exists = STATE.places.some((item) => {
+      if (!item) return false;
+
+      if (manualPlace.placeId && item.placeId && manualPlace.placeId === item.placeId) {
+        return true;
+      }
+
+      return (
+        String(item.title || "").trim().toLowerCase() === String(manualPlace.title || "").trim().toLowerCase() &&
+        String(item.address || "").trim().toLowerCase() === String(manualPlace.address || "").trim().toLowerCase()
+      );
+    });
+
+    if (!exists) {
+      STATE.places.push(manualPlace);
+    }
+  });
+}
 function getCurrentAtlasTripId_() {
   return window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
 }
