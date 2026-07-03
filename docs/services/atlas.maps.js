@@ -14,19 +14,18 @@ const AtlasMaps = (() => {
     routeRenderer: null,
     places: [],
     geocoder: null,
-      infoWindow: null,
-        searchBox: null,
+    infoWindow: null,
+    searchBox: null,
     isReady: false
   };
 
   function getApiKey() {
-    if (!window.AtlasConfig || !window.AtlasConfig.maps) return null;
-    return window.AtlasConfig.maps.apiKey;
+    return window.AtlasConfig?.maps?.apiKey || null;
   }
 
   function loadGoogleMaps() {
     return new Promise((resolve, reject) => {
-      if (window.google && window.google.maps) {
+      if (window.google?.maps) {
         resolve(window.google.maps);
         return;
       }
@@ -63,10 +62,11 @@ const AtlasMaps = (() => {
       throw new Error(`Map element not found: ${options.elementId}`);
     }
 
-STATE.places = options.places || [];
-mergeManualPlacesIntoState_();
-STATE.geocoder = new maps.Geocoder();
-STATE.infoWindow = new maps.InfoWindow();
+    STATE.places = options.places || [];
+    mergeManualPlacesIntoState_();
+
+    STATE.geocoder = new maps.Geocoder();
+    STATE.infoWindow = new maps.InfoWindow();
 
     const initialPlace = firstValidLatLngPlace_(STATE.places) || {
       lat: 37.5665,
@@ -111,9 +111,7 @@ STATE.infoWindow = new maps.InfoWindow();
 
     for (const place of STATE.places) {
       const normalized = await resolvePlace_(place);
-      if (normalized) {
-        resolved.push(normalized);
-      }
+      if (normalized) resolved.push(normalized);
     }
 
     STATE.places = resolved;
@@ -141,7 +139,7 @@ STATE.infoWindow = new maps.InfoWindow();
       return {
         ...place,
         title: place.title || query,
-        query: query,
+        query,
         lat: result.lat,
         lng: result.lng
       };
@@ -186,14 +184,14 @@ STATE.infoWindow = new maps.InfoWindow();
 
     return (
       lower.length > 100 ||
-      lower.indexOf("refund") >= 0 ||
-      lower.indexOf("reservation applies") >= 0 ||
-      lower.indexOf("restrictive") >= 0
+      lower.includes("refund") ||
+      lower.includes("reservation applies") ||
+      lower.includes("restrictive")
     );
   }
 
   function hasValidLatLng_(place) {
-    return Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lng));
+    return Number.isFinite(Number(place?.lat)) && Number.isFinite(Number(place?.lng));
   }
 
   function firstValidLatLngPlace_(places) {
@@ -201,62 +199,64 @@ STATE.infoWindow = new maps.InfoWindow();
   }
 
   function renderMarkers() {
-  clearMarkers();
+    clearMarkers();
 
-  if (!STATE.map || !window.google || !window.google.maps) return;
+    if (!STATE.map || !window.google?.maps) return;
 
-  STATE.places.forEach((place) => {
-    if (!hasValidLatLng_(place)) return;
+    STATE.places.forEach((place) => {
+      if (!hasValidLatLng_(place)) return;
 
-    const marker = new window.google.maps.Marker({
+      const marker = new window.google.maps.Marker({
+        map: STATE.map,
+        position: {
+          lat: Number(place.lat),
+          lng: Number(place.lng)
+        },
+        title: place.title || place.query || "Atlas place"
+      });
+
+      marker.addListener("click", () => {
+        openPlaceInfoWindow_(marker, place);
+      });
+
+      STATE.markers.push(marker);
+    });
+  }
+
+  function openPlaceInfoWindow_(marker, place) {
+    if (!STATE.infoWindow) return;
+
+    const canDelete = place.type === "manual_place";
+
+    STATE.infoWindow.setContent(`
+      <div class="atlas-map-info">
+        ${place.category ? `<div class="atlas-map-info-category">${escapeHtml_(place.category)}</div>` : ""}
+        <strong>${escapeHtml_(place.title || place.query || "Atlas place")}</strong>
+        ${place.address || place.query ? `<p>${escapeHtml_(place.address || place.query)}</p>` : ""}
+        ${place.schedule ? `<small>일정: ${escapeHtml_(place.schedule)}</small>` : ""}
+        ${place.source ? `<small>출처: ${escapeHtml_(place.source)}</small>` : ""}
+        ${
+          canDelete
+            ? `<button class="atlas-map-delete-button" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete</button>`
+            : ""
+        }
+      </div>
+    `);
+
+    STATE.infoWindow.open({
       map: STATE.map,
-      position: {
-        lat: Number(place.lat),
-        lng: Number(place.lng)
-      },
-      title: place.title || place.query || "Atlas place"
+      anchor: marker
     });
 
-    marker.addListener("click", () => {
-      openPlaceInfoWindow_(marker, place);
+    window.google.maps.event.addListenerOnce(STATE.infoWindow, "domready", () => {
+      const deleteButton = document.querySelector(`[data-atlas-delete-place="${cssEscape_(place.id)}"]`);
+      if (!deleteButton) return;
+
+      deleteButton.addEventListener("click", () => {
+        deleteManualPlace_(place.id);
+      });
     });
-
-    STATE.markers.push(marker);
-  });
-}
-
-function openPlaceInfoWindow_(marker, place) {
-  if (!STATE.infoWindow) return;
-
-  const category = escapeHtml_(place.category || "장소");
-  const title = escapeHtml_(place.title || place.query || "Atlas place");
-  const address = escapeHtml_(place.address || place.query || "");
-  const schedule = escapeHtml_(place.schedule || "");
-  const source = escapeHtml_(place.source || "");
-
-STATE.infoWindow.setContent(`
-  <div class="atlas-map-info">
-    ${category ? `<div class="atlas-map-info-category">${category}</div>` : ""}
-    <strong>${title}</strong>
-    ${address ? `<p>${address}</p>` : ""}
-    ${schedule ? `<p>일정: ${schedule}</p>` : ""}
-    ${source ? `<small>출처: ${source}</small>` : ""}
-  </div>
-`);
-  STATE.infoWindow.open({
-    map: STATE.map,
-    anchor: marker
-  });
-}
-
-function escapeHtml_(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+  }
 
   function clearMarkers() {
     STATE.markers.forEach((marker) => marker.setMap(null));
@@ -267,7 +267,6 @@ function escapeHtml_(value) {
     if (!STATE.map || STATE.places.length === 0) return;
 
     const validPlaces = STATE.places.filter(hasValidLatLng_);
-
     if (validPlaces.length === 0) return;
 
     if (validPlaces.length === 1) {
@@ -302,6 +301,7 @@ function escapeHtml_(value) {
 
   async function setPlaces(places) {
     STATE.places = places || [];
+    mergeManualPlacesIntoState_();
     await resolvePlaces();
     renderMarkers();
     fitToPlaces();
@@ -342,240 +342,216 @@ function escapeHtml_(value) {
       }
     );
   }
-function initPlaceSearchControl_() {
-  if (!STATE.map || !window.google || !window.google.maps || !window.google.maps.places) {
-    console.warn("Google Places library is not available.");
-    return;
-  }
 
-  const input = document.createElement("input");
-  input.id = "atlas-map-search-input";
-  input.className = "atlas-map-search-input";
-  input.type = "text";
-  input.placeholder = "장소 검색 후 지도에 추가";
-  input.setAttribute("aria-label", "Search places");
-
-  STATE.map.controls[window.google.maps.ControlPosition.TOP_LEFT].push(input);
-
-  const autocomplete = new window.google.maps.places.Autocomplete(input, {
-    fields: ["place_id", "name", "formatted_address", "geometry", "types"]
-  });
-
-  autocomplete.bindTo("bounds", STATE.map);
-
-  autocomplete.addListener("place_changed", () => {
-    const place = autocomplete.getPlace();
-    console.log("ATLAS SEARCH SELECTED PLACE", place);
-
-    if (!place || !place.geometry || !place.geometry.location) {
-      console.warn("Atlas place search returned no geometry:", place);
+  function initPlaceSearchControl_() {
+    if (!STATE.map || !window.google?.maps?.places) {
+      console.warn("Google Places library is not available.");
       return;
     }
 
-    showPendingPlaceInfoWindow_(buildManualPlaceFromGooglePlace_(place));
-    input.value = "";
-  });
+    const input = document.createElement("input");
+    input.id = "atlas-map-search-input";
+    input.className = "atlas-map-search-input";
+    input.type = "text";
+    input.placeholder = "장소 검색";
+    input.setAttribute("aria-label", "Search places");
 
-  STATE.searchBox = autocomplete;
-}
-function buildManualPlaceFromGooglePlace_(googlePlace) {
-  const location = googlePlace.geometry.location;
+    STATE.map.controls[window.google.maps.ControlPosition.TOP_LEFT].push(input);
 
-  return {
-    id: "manual_" + Date.now() + "_" + Math.random().toString(16).slice(2),
-    tripId: getCurrentAtlasTripId_(),
-    tripName: getCurrentAtlasTripName_(),
-    type: "manual_place",
-    category: inferManualPlaceCategory_(googlePlace),
-    title: googlePlace.name || "검색한 장소",
-    address: googlePlace.formatted_address || "",
-    query: googlePlace.formatted_address || googlePlace.name || "",
-    schedule: "",
-    source: "Google Maps 검색",
-    lat: location.lat(),
-    lng: location.lng(),
-    placeId: googlePlace.place_id || ""
-  };
-}
+    const autocomplete = new window.google.maps.places.Autocomplete(input, {
+      fields: ["place_id", "name", "formatted_address", "geometry", "types"]
+    });
 
-function showPendingPlaceInfoWindow_(place) {
-  if (!STATE.map || !STATE.infoWindow) return;
+    autocomplete.bindTo("bounds", STATE.map);
 
-  const pendingMarker = new window.google.maps.Marker({
-    map: STATE.map,
-    position: {
+    autocomplete.addListener("place_changed", () => {
+      const googlePlace = autocomplete.getPlace();
+      console.log("ATLAS SEARCH SELECTED PLACE", googlePlace);
+
+      if (!googlePlace?.geometry?.location) {
+        console.warn("Atlas place search returned no geometry:", googlePlace);
+        return;
+      }
+
+      const pendingPlace = buildManualPlaceFromGooglePlace_(googlePlace);
+      showPendingPlaceInfoWindow_(pendingPlace);
+      input.value = "";
+    });
+
+    STATE.searchBox = autocomplete;
+  }
+
+  function buildManualPlaceFromGooglePlace_(googlePlace) {
+    const location = googlePlace.geometry.location;
+
+    return {
+      id: "manual_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+      tripId: getCurrentAtlasTripId_(),
+      tripName: getCurrentAtlasTripName_(),
+      type: "manual_place",
+      category: inferManualPlaceCategory_(googlePlace),
+      title: googlePlace.name || "검색한 장소",
+      address: googlePlace.formatted_address || "",
+      query: googlePlace.formatted_address || googlePlace.name || "",
+      schedule: "",
+      source: "Google Maps 검색",
+      lat: location.lat(),
+      lng: location.lng(),
+      placeId: googlePlace.place_id || ""
+    };
+  }
+
+  function showPendingPlaceInfoWindow_(place) {
+    if (!STATE.map || !STATE.infoWindow) return;
+
+    const position = {
       lat: Number(place.lat),
       lng: Number(place.lng)
-    },
-    title: place.title || "검색한 장소"
-  });
+    };
 
-  STATE.infoWindow.setContent(`
-    <div class="atlas-map-info atlas-map-info-pending">
-      <div class="atlas-map-info-category">${escapeHtml_(place.category || "장소")}</div>
-      <strong>${escapeHtml_(place.title || "검색한 장소")}</strong>
-      ${place.address ? `<p>${escapeHtml_(place.address)}</p>` : ""}
-      <button type="button" class="atlas-map-add-button" data-atlas-add-place="true">
-        + Add to Atlas
-      </button>
-    </div>
-  `);
+    STATE.infoWindow.setContent(`
+      <div class="atlas-map-info atlas-map-info-pending">
+        <div class="atlas-map-info-category">${escapeHtml_(place.category || "장소")}</div>
+        <strong>${escapeHtml_(place.title || "검색한 장소")}</strong>
+        ${place.address ? `<p>${escapeHtml_(place.address)}</p>` : ""}
+        <button class="atlas-map-add-button" type="button" data-atlas-add-place="true">Add to Atlas</button>
+      </div>
+    `);
 
-  STATE.infoWindow.open({
-    map: STATE.map,
-    anchor: pendingMarker
-  });
-
-  STATE.map.panTo({
-    lat: Number(place.lat),
-    lng: Number(place.lng)
-  });
-  STATE.map.setZoom(CONFIG.focusedZoom);
-
-  window.google.maps.event.addListenerOnce(STATE.infoWindow, "domready", () => {
-    const button = document.querySelector('[data-atlas-add-place="true"]');
-    if (!button) {
-      console.warn("Atlas pending add button not found");
-      return;
-    }
-
-    button.addEventListener("click", () => {
-      confirmAddPendingPlace_(place, pendingMarker);
-    });
-  });
-}
-
-function confirmAddPendingPlace_(place, pendingMarker) {
-  const exists = STATE.places.some((item) => {
-    if (!item) return false;
-
-    if (place.placeId && item.placeId && place.placeId === item.placeId) {
-      return true;
-    }
-
-    return (
-      String(item.title || "").trim().toLowerCase() === String(place.title || "").trim().toLowerCase() &&
-      String(item.address || "").trim().toLowerCase() === String(place.address || "").trim().toLowerCase()
-    );
-  });
-
-  if (!exists) {
-    STATE.places.push(place);
-    saveManualPlacesToStorage_();
-  }
-
-  if (pendingMarker) {
-    pendingMarker.setMap(null);
-  }
-
-  STATE.infoWindow.close();
-  renderMarkers();
-}
-function addGooglePlaceToAtlasMap_(googlePlace) {
-  if (!googlePlace || !googlePlace.geometry || !googlePlace.geometry.location) return;
-
-  const location = googlePlace.geometry.location;
-
-  const place = {
-    id: "manual_" + Date.now() + "_" + Math.random().toString(16).slice(2),
-    tripId: getCurrentAtlasTripId_(),
-    tripName: getCurrentAtlasTripName_(),
-    type: "manual_place",
-    category: inferManualPlaceCategory_(googlePlace),
-    title: googlePlace.name || "검색한 장소",
-    address: googlePlace.formatted_address || "",
-    query: googlePlace.formatted_address || googlePlace.name || "",
-    schedule: "",
-    source: "Google Maps 검색",
-    lat: location.lat(),
-    lng: location.lng(),
-    placeId: googlePlace.place_id || ""
-  };
-
-  showPendingPlaceInfoWindow_(place);
-}
-function getAtlasManualPlacesStorageKey_() {
-  return "ATLAS_MANUAL_MAP_PLACES__" + getCurrentAtlasTripId_();
-}
-
-function loadManualPlacesFromStorage_() {
-  try {
-    const raw = window.localStorage.getItem(getAtlasManualPlacesStorageKey_());
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (error) {
-    console.warn("Failed to load Atlas manual places from localStorage", error);
-    return [];
-  }
-}
-
-function saveManualPlacesToStorage_() {
-  try {
-    const manualPlaces = STATE.places.filter((place) => {
-      return place && place.type === "manual_place";
+    STATE.infoWindow.setPosition(position);
+    STATE.infoWindow.open({
+      map: STATE.map
     });
 
-    window.localStorage.setItem(
-      getAtlasManualPlacesStorageKey_(),
-      JSON.stringify(manualPlaces)
-    );
-  } catch (error) {
-    console.warn("Failed to save Atlas manual places to localStorage", error);
+    STATE.map.panTo(position);
+    STATE.map.setZoom(CONFIG.focusedZoom);
+
+    window.google.maps.event.addListenerOnce(STATE.infoWindow, "domready", () => {
+      const addButton = document.querySelector('[data-atlas-add-place="true"]');
+      if (!addButton) return;
+
+      addButton.addEventListener("click", () => {
+        confirmAddPendingPlace_(place);
+      });
+    });
   }
-}
 
-function mergeManualPlacesIntoState_() {
-  const manualPlaces = loadManualPlacesFromStorage_();
-
-  manualPlaces.forEach((manualPlace) => {
-    if (!manualPlace) return;
-
+  function confirmAddPendingPlace_(place) {
     const exists = STATE.places.some((item) => {
       if (!item) return false;
 
-      if (manualPlace.placeId && item.placeId && manualPlace.placeId === item.placeId) {
+      if (place.placeId && item.placeId && place.placeId === item.placeId) {
         return true;
       }
 
       return (
-        String(item.title || "").trim().toLowerCase() === String(manualPlace.title || "").trim().toLowerCase() &&
-        String(item.address || "").trim().toLowerCase() === String(manualPlace.address || "").trim().toLowerCase()
+        String(item.title || "").trim().toLowerCase() === String(place.title || "").trim().toLowerCase() &&
+        String(item.address || "").trim().toLowerCase() === String(place.address || "").trim().toLowerCase()
       );
     });
 
     if (!exists) {
-      STATE.places.push(manualPlace);
+      STATE.places.push(place);
+      saveManualPlacesToStorage_();
     }
-  });
-}
-function getCurrentAtlasTripId_() {
-  return window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
-}
 
-function getCurrentAtlasTripName_() {
-  return window.AtlasConfig?.atlas?.defaultTripName || "Türkiye 2026";
-}
-
-function inferManualPlaceCategory_(googlePlace) {
-  const types = googlePlace.types || [];
-
-  if (types.indexOf("airport") >= 0) return "공항";
-  if (types.indexOf("lodging") >= 0) return "호텔";
-  if (
-    types.indexOf("tourist_attraction") >= 0 ||
-    types.indexOf("museum") >= 0 ||
-    types.indexOf("point_of_interest") >= 0
-  ) {
-    return "관광지";
+    STATE.infoWindow.close();
+    renderMarkers();
+    moveTo(place.id);
   }
 
-  if (types.indexOf("train_station") >= 0 || types.indexOf("subway_station") >= 0) return "역";
-  if (types.indexOf("bus_station") >= 0) return "버스터미널";
-  if (types.indexOf("restaurant") >= 0 || types.indexOf("cafe") >= 0) return "음식점";
+  function deleteManualPlace_(placeId) {
+    if (!placeId) return;
 
-  return "장소";
-}
+    STATE.places = STATE.places.filter((place) => place.id !== placeId);
+    saveManualPlacesToStorage_();
+
+    if (STATE.infoWindow) {
+      STATE.infoWindow.close();
+    }
+
+    renderMarkers();
+  }
+
+  function getAtlasManualPlacesStorageKey_() {
+    return "ATLAS_MANUAL_MAP_PLACES__" + getCurrentAtlasTripId_();
+  }
+
+  function loadManualPlacesFromStorage_() {
+    try {
+      const raw = window.localStorage.getItem(getAtlasManualPlacesStorageKey_());
+      if (!raw) return [];
+
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn("Failed to load Atlas manual places from localStorage", error);
+      return [];
+    }
+  }
+
+  function saveManualPlacesToStorage_() {
+    try {
+      const manualPlaces = STATE.places.filter((place) => place?.type === "manual_place");
+      window.localStorage.setItem(getAtlasManualPlacesStorageKey_(), JSON.stringify(manualPlaces));
+    } catch (error) {
+      console.warn("Failed to save Atlas manual places to localStorage", error);
+    }
+  }
+
+  function mergeManualPlacesIntoState_() {
+    const manualPlaces = loadManualPlacesFromStorage_();
+
+    manualPlaces.forEach((manualPlace) => {
+      if (!manualPlace) return;
+
+      const exists = STATE.places.some((item) => {
+        if (!item) return false;
+
+        if (manualPlace.placeId && item.placeId && manualPlace.placeId === item.placeId) {
+          return true;
+        }
+
+        return (
+          String(item.title || "").trim().toLowerCase() === String(manualPlace.title || "").trim().toLowerCase() &&
+          String(item.address || "").trim().toLowerCase() === String(manualPlace.address || "").trim().toLowerCase()
+        );
+      });
+
+      if (!exists) {
+        STATE.places.push(manualPlace);
+      }
+    });
+  }
+
+  function getCurrentAtlasTripId_() {
+    return window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+  }
+
+  function getCurrentAtlasTripName_() {
+    return window.AtlasConfig?.atlas?.defaultTripName || "Türkiye 2026";
+  }
+
+  function inferManualPlaceCategory_(googlePlace) {
+    const types = googlePlace.types || [];
+
+    if (types.includes("airport")) return "공항";
+    if (types.includes("lodging")) return "호텔";
+    if (types.includes("train_station") || types.includes("subway_station")) return "역";
+    if (types.includes("bus_station")) return "버스터미널";
+    if (types.includes("restaurant") || types.includes("cafe")) return "음식점";
+
+    if (
+      types.includes("tourist_attraction") ||
+      types.includes("museum") ||
+      types.includes("point_of_interest")
+    ) {
+      return "관광지";
+    }
+
+    return "장소";
+  }
+
   function clearRoute() {
     if (STATE.routeRenderer) {
       STATE.routeRenderer.setDirections({ routes: [] });
@@ -584,6 +560,23 @@ function inferManualPlaceCategory_(googlePlace) {
 
   function isReady() {
     return STATE.isReady;
+  }
+
+  function escapeHtml_(value) {
+    return String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function cssEscape_(value) {
+    if (window.CSS && typeof window.CSS.escape === "function") {
+      return window.CSS.escape(String(value || ""));
+    }
+
+    return String(value || "").replace(/"/g, '\\"');
   }
 
   return {
