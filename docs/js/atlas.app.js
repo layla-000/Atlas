@@ -342,3 +342,298 @@ await renderStatus({
 window.addEventListener("DOMContentLoaded", () => {
   Atlas.initialize();
 });
+const ATLAS_SCHEDULE_TYPES = [
+  { value: "flight", label: "Flight", icon: "✈️" },
+  { value: "hotel", label: "Hotel", icon: "🏨" },
+  { value: "train", label: "Train", icon: "🚆" },
+  { value: "bus", label: "Bus", icon: "🚌" },
+  { value: "activity", label: "Activity", icon: "🎈" },
+  { value: "etc", label: "Etc", icon: "✨" }
+];
+
+let atlasCurrentScheduleType = "flight";
+
+function openAtlasScheduleTypePicker() {
+  closeAtlasScheduleModal();
+
+  const modal = document.createElement("div");
+  modal.id = "atlas-schedule-modal";
+  modal.className = "atlas-modal-backdrop";
+  modal.innerHTML = `
+    <div class="atlas-modal atlas-schedule-picker">
+      <div class="atlas-modal-header">
+        <div>
+          <div class="atlas-modal-kicker">Atlas Intake</div>
+          <h2>Add Schedule</h2>
+        </div>
+        <button class="atlas-modal-close" onclick="closeAtlasScheduleModal()">×</button>
+      </div>
+
+      <div class="atlas-schedule-type-grid">
+        ${ATLAS_SCHEDULE_TYPES.map(type => `
+          <button class="atlas-schedule-type-card" onclick="openAtlasScheduleForm('${type.value}')">
+            <span class="atlas-schedule-type-icon">${type.icon}</span>
+            <span>${type.label}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+function openAtlasScheduleForm(scheduleType) {
+  atlasCurrentScheduleType = scheduleType;
+  closeAtlasScheduleModal();
+
+  const typeMeta = ATLAS_SCHEDULE_TYPES.find(t => t.value === scheduleType) || ATLAS_SCHEDULE_TYPES[0];
+
+  const modal = document.createElement("div");
+  modal.id = "atlas-schedule-modal";
+  modal.className = "atlas-modal-backdrop";
+  modal.innerHTML = `
+    <div class="atlas-modal atlas-schedule-form">
+      <div class="atlas-modal-header">
+        <div>
+          <div class="atlas-modal-kicker">Manual Schedule</div>
+          <h2>${typeMeta.icon} ${typeMeta.label}</h2>
+        </div>
+        <button class="atlas-modal-close" onclick="closeAtlasScheduleModal()">×</button>
+      </div>
+
+      <form id="atlas-schedule-form" onsubmit="submitAtlasScheduleForm(event)">
+        ${renderAtlasScheduleFields(scheduleType)}
+
+        <div class="atlas-form-actions">
+          <button type="button" class="atlas-secondary-btn" onclick="openAtlasScheduleTypePicker()">Back</button>
+          <button type="submit" class="atlas-primary-btn">Save Schedule</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+function renderAtlasScheduleFields(type) {
+  const commonTop = `
+    <label>
+      Trip ID
+      <input name="tripId" value="turkiye_2026" required />
+    </label>
+
+    <label>
+      Title
+      <input name="title" placeholder="예: TK21 인천 → 이스탄불" required />
+    </label>
+  `;
+
+  const commonBottom = `
+    <label>
+      Location
+      <input name="location" placeholder="예: ICN, IST, Göreme" />
+    </label>
+
+    <label>
+      Notes
+      <textarea name="notes" rows="3" placeholder="예약번호, 준비물, 메모 등을 적어 주세요."></textarea>
+    </label>
+  `;
+
+  if (type === "flight") {
+    return `
+      ${commonTop}
+      <div class="atlas-form-row">
+        <label>Airline<input name="airline" placeholder="Turkish Airlines" /></label>
+        <label>Flight No.<input name="number" placeholder="TK21" /></label>
+      </div>
+      <div class="atlas-form-row">
+        <label>Departure<input name="departurePlace" placeholder="ICN" /></label>
+        <label>Arrival<input name="arrivalPlace" placeholder="IST" /></label>
+      </div>
+      <div class="atlas-form-row">
+        <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
+        <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
+      </div>
+      ${commonBottom}
+    `;
+  }
+
+  if (type === "hotel") {
+    return `
+      ${commonTop}
+      <label>Hotel Name<input name="hotelName" placeholder="Sultan Cave Suites" /></label>
+      <div class="atlas-form-row">
+        <label>Check-in<input name="startAt" type="datetime-local" required /></label>
+        <label>Check-out<input name="endAt" type="datetime-local" required /></label>
+      </div>
+      <label>Reservation No.<input name="reservationNumber" placeholder="optional" /></label>
+      ${commonBottom}
+    `;
+  }
+
+  if (type === "train") {
+    return `
+      ${commonTop}
+      <div class="atlas-form-row">
+        <label>Operator<input name="operator" placeholder="TCDD" /></label>
+        <label>Train No.<input name="number" placeholder="optional" /></label>
+      </div>
+      <div class="atlas-form-row">
+        <label>Departure Station<input name="departurePlace" /></label>
+        <label>Arrival Station<input name="arrivalPlace" /></label>
+      </div>
+      <div class="atlas-form-row">
+        <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
+        <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
+      </div>
+      ${commonBottom}
+    `;
+  }
+
+  if (type === "bus") {
+    return `
+      ${commonTop}
+      <div class="atlas-form-row">
+        <label>Operator<input name="operator" placeholder="Pamukkale" /></label>
+        <label>Bus No.<input name="number" placeholder="optional" /></label>
+      </div>
+      <div class="atlas-form-row">
+        <label>Departure Stop<input name="departurePlace" /></label>
+        <label>Arrival Stop<input name="arrivalPlace" /></label>
+      </div>
+      <div class="atlas-form-row">
+        <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
+        <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
+      </div>
+      ${commonBottom}
+    `;
+  }
+
+  if (type === "activity") {
+    return `
+      ${commonTop}
+      <label>Provider<input name="provider" placeholder="optional" /></label>
+      <div class="atlas-form-row">
+        <label>Start Time<input name="startAt" type="datetime-local" required /></label>
+        <label>End Time<input name="endAt" type="datetime-local" /></label>
+      </div>
+      <label>Meeting Point<input name="meetingPoint" placeholder="optional" /></label>
+      ${commonBottom}
+    `;
+  }
+
+  return `
+    ${commonTop}
+    <div class="atlas-form-row">
+      <label>Start Time<input name="startAt" type="datetime-local" required /></label>
+      <label>End Time<input name="endAt" type="datetime-local" /></label>
+    </div>
+    ${commonBottom}
+  `;
+}
+
+function collectAtlasSchedulePayload(form) {
+  const data = new FormData(form);
+  const raw = Object.fromEntries(data.entries());
+
+  return {
+    type: "schedule",
+    scheduleType: atlasCurrentScheduleType,
+    tripId: raw.tripId,
+    title: raw.title,
+    startAt: raw.startAt,
+    endAt: raw.endAt,
+    location: raw.location || "",
+    notes: raw.notes || "",
+    details: {
+      airline: raw.airline || "",
+      operator: raw.operator || "",
+      provider: raw.provider || "",
+      hotelName: raw.hotelName || "",
+      number: raw.number || "",
+      reservationNumber: raw.reservationNumber || "",
+      departurePlace: raw.departurePlace || "",
+      arrivalPlace: raw.arrivalPlace || "",
+      meetingPoint: raw.meetingPoint || ""
+    }
+  };
+}
+
+async function submitAtlasScheduleForm(event) {
+  event.preventDefault();
+
+  const form = event.target;
+  const payload = collectAtlasSchedulePayload(form);
+
+  try {
+    setAtlasScheduleSaving(true);
+
+    const result = await sendAtlasSchedulePayload(payload);
+
+    closeAtlasScheduleModal();
+
+    if (typeof renderStatus === "function") {
+      renderStatus({
+        ok: true,
+        message: result.message || "Schedule saved to Atlas."
+      });
+    }
+
+    if (result.timelineEvent && typeof renderTimeline === "function") {
+      renderTimeline([result.timelineEvent]);
+    }
+  } catch (error) {
+    console.error(error);
+    alert("Schedule 저장에 실패했어요: " + error.message);
+  } finally {
+    setAtlasScheduleSaving(false);
+  }
+}
+
+function setAtlasScheduleSaving(isSaving) {
+  const btn = document.querySelector("#atlas-schedule-form .atlas-primary-btn");
+  if (!btn) return;
+  btn.disabled = isSaving;
+  btn.textContent = isSaving ? "Saving..." : "Save Schedule";
+}
+
+async function sendAtlasSchedulePayload(payload) {
+  const endpoint =
+    window.ATLAS_API_URL ||
+    window.ATLAS_WEB_APP_URL ||
+    "";
+
+  if (!endpoint) {
+    throw new Error("ATLAS_API_URL 또는 ATLAS_WEB_APP_URL이 설정되어 있지 않아요.");
+  }
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "create_schedule",
+      payload
+    })
+  });
+
+  const text = await response.text();
+
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error("서버 응답을 JSON으로 읽을 수 없어요: " + text);
+  }
+
+  if (!json.ok) {
+    throw new Error(json.error || "Unknown schedule error");
+  }
+
+  return json;
+}
+
+function closeAtlasScheduleModal() {
+  const modal = document.getElementById("atlas-schedule-modal");
+  if (modal) modal.remove();
+}

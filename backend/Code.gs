@@ -11,7 +11,9 @@ function doPost(e) {
       const payload = JSON.parse(e.postData.contents || "{}");
       return createJsonResponse(removeAtlasManualMapPlace(payload));
     }
-
+if (body.action === "create_schedule") {
+  return createAtlasJsonResponse(handleAtlasScheduleCreate(body.payload));
+}
     const payload = JSON.parse(e.postData.contents);
     const uploadResult = handleAtlasUpload(payload);
     const pipelineResult = runAtlasUploadPipelineAfterUpload_(uploadResult);
@@ -106,7 +108,11 @@ if (action === "manual_map_places") {
     message: "Atlas backend is running."
   });
 }
-
+function createAtlasJsonResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 function createJsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))

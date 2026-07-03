@@ -829,3 +829,162 @@ button {
 .atlas-map-info-title-link:hover {
   text-decoration: underline;
 }
+.atlas-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(16, 24, 32, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  backdrop-filter: blur(8px);
+}
+
+.atlas-modal {
+  width: min(520px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
+}
+
+.atlas-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.atlas-modal-kicker {
+  font-size: 12px;
+  color: #5f7f7b;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.atlas-modal h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.atlas-modal-close {
+  border: 0;
+  background: #f1f3f3;
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.atlas-schedule-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.atlas-schedule-type-card {
+  border: 1px solid #dfe7e6;
+  background: #f8fbfa;
+  border-radius: 18px;
+  padding: 18px 14px;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.atlas-schedule-type-card:hover {
+  background: #eef7f5;
+}
+
+.atlas-schedule-type-icon {
+  font-size: 28px;
+}
+
+.atlas-schedule-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.atlas-schedule-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #334;
+}
+
+.atlas-schedule-form input,
+.atlas-schedule-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d8e1df;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+  background: #fbfdfd;
+}
+
+.atlas-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.atlas-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.atlas-primary-btn,
+.atlas-secondary-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.atlas-primary-btn {
+  background: #2f8f83;
+  color: white;
+}
+
+.atlas-primary-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.atlas-secondary-btn {
+  background: #eef2f2;
+  color: #253433;
+}
+
+@media (max-width: 520px) {
+  .atlas-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .atlas-modal {
+    border-radius: 22px 22px 0 0;
+    max-height: 92vh;
+  }
+
+  .atlas-form-row,
+  .atlas-schedule-type-grid {
+    grid-template-columns: 1fr;
+  }
+}

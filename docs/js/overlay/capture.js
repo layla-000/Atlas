@@ -40,6 +40,14 @@ const AtlasCapture = (() => {
                             multiple
                             hidden>
                     </label>
+
+                    <button
+    type="button"
+    class="atlas-capture-item atlas-capture-schedule"
+    id="atlas-schedule-button">
+    <span class="atlas-capture-icon">🗓️</span>
+    <span>Schedule</span>
+</button>
                 </div>
 
                 <button
@@ -59,6 +67,7 @@ const AtlasCapture = (() => {
         const menu = document.getElementById(SELECTORS.menu);
         const documentInput = document.getElementById(SELECTORS.documentInput);
         const receiptInput = document.getElementById(SELECTORS.receiptInput);
+        const scheduleButton = document.getElementById("atlas-schedule-button");
 
         button.addEventListener("click", () => {
             menu.classList.toggle("is-open");
@@ -76,7 +85,16 @@ const AtlasCapture = (() => {
             menu.classList.remove("is-open");
             button.classList.remove("is-open");
         });
+scheduleButton.addEventListener("click", () => {
+    menu.classList.remove("is-open");
+    button.classList.remove("is-open");
 
+    if (typeof openAtlasScheduleTypePicker === "function") {
+        openAtlasScheduleTypePicker();
+    } else {
+        showBottomSheet("⚠️ Atlas", "Schedule service가 아직 준비되지 않았어요.");
+    }
+});
         window.addEventListener("atlas:capture-start", (event) => {
             showBottomSheet(
                 event.detail.type === "receipt" ? "🧾 Receipt" : "📄 Document",
