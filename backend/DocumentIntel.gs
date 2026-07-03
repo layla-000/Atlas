@@ -327,10 +327,11 @@ function isBadFlightLine_(line) {
 function isLikelyAirportCode_(code) {
   const blocked = [
     "PDF", "PNR", "VAT", "USD", "EUR", "TRY", "TLS", "FAQ",
-    "THE", "AND", "FOR", "NOT", "ALL", "ANY", "AIR"
+    "THE", "AND", "FOR", "NOT", "ALL", "ANY", "AIR",
+    "LEE", "KIM", "PARK", "CHOI", "JUNG", "JEONG", "HAN"
   ];
 
-  return blocked.indexOf(code) < 0;
+  return blocked.indexOf(String(code || "").toUpperCase()) < 0;
 }
 
 function normalizeFlightDateText_(value) {
