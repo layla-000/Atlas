@@ -557,22 +557,22 @@ const flightNumber = flightNoMatch ? flightNoMatch[1].replace(/\s+/g, "") : "";
 
   const carrierMatch = text.match(/(Turkish Airlines|Korean Air|Asiana Airlines|대한항공|아시아나)/i);
 
-  return {
-    timestamp: Number.MAX_SAFE_INTEGER,
-    transport_type: normalizeTransportTypeForCard_(insight.type),
-    title: buildTransportTitle_(
-      mapTransportType_(insight.type),
-      carrierMatch ? carrierMatch[1] : "항공편",
-      "",
-      routeMatch[1],
-      routeMatch[2]
-    ),
-    departure_place: routeMatch[1],
-    departure_time: "",
-    arrival_place: routeMatch[2],
-    arrival_time: "",
-    reference: ""
-  };
+return {
+  timestamp: Number.MAX_SAFE_INTEGER,
+  transport_type: normalizeTransportTypeForCard_(insight.type),
+  title: buildTransportTitle_(
+    mapTransportType_(insight.type),
+    carrierMatch ? carrierMatch[1] : "항공편",
+    flightNumber,
+    routeMatch[1],
+    routeMatch[2]
+  ),
+  departure_place: routeMatch[1],
+  departure_time: "",
+  arrival_place: routeMatch[2],
+  arrival_time: "",
+  reference: flightNumber
+};
 }
 
 function emptyNextTransport_() {
