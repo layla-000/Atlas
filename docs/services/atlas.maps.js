@@ -14,7 +14,8 @@ const AtlasMaps = (() => {
     routeRenderer: null,
     places: [],
     infoWindow: null,
-    isReady: false
+    isReady: false,
+    placesService: null,
   };
 
   function getApiKey() {
@@ -84,6 +85,7 @@ script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=pl
 
     STATE.places = filterKoreaPlaces(options.places || []);
     STATE.infoWindow = new maps.InfoWindow();
+    STATE.placesService = new maps.places.PlacesService(STATE.map);
 
     const initialPlace = STATE.places[0] || { lat: 41.0082, lng: 28.9784, title: "Istanbul" };
 
@@ -227,29 +229,56 @@ function inferManualPlaceCategory_(googlePlace) {
   }
 
   function initMapClickToAdd_() {
-    if (!STATE.map || !window.google?.maps) return;
+  if (!STATE.map || !window.google?.maps) return;
 
-    STATE.map.addListener("click", (event) => {
-      if (!event?.latLng) return;
+  STATE.map.addListener("click", (event) => {
+    if (!event?.latLng) return;
 
-      const lat = event.latLng.lat();
-      const lng = event.latLng.lng();
+    if (event.placeId) {
+      event.stop();
 
-      const pendingPlace = {
-        id: "manual_" + Date.now() + "_" + Math.random().toString(16).slice(2),
-        type: "manual_place",
-        title: "선택한 장소",
-        address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-        query: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-        source: "지도 클릭",
-        lat,
-        lng
-      };
+      STATE.placesService.getDetails(
+        {
+          placeId: event.placeId,
+          fields: ["place_id", "name", "formatted_address", "geometry", "types"]
+        },
+        (googlePlace, status) => {
+          if (status !== window.google.maps.places.PlacesServiceStatus.OK || !googlePlace) {
+            return;
+          }
 
-      if (isKoreaPlace(pendingPlace)) return;
-      showPendingPlaceInfoWindow_(pendingPlace);
-    });
-  }
+          const pendingPlace = buildManualPlaceFromGooglePlace_(googlePlace);
+
+          if (isKoreaPlace(pendingPlace)) return;
+
+          showPendingPlaceInfoWindow_(pendingPlace);
+        }
+      );
+
+      return;
+    }
+
+    const lat = event.latLng.lat();
+    const lng = event.latLng.lng();
+
+    const pendingPlace = {
+      id: "manual_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+      type: "manual_place",
+      category: "직접 추가",
+      title: "선택한 장소",
+      address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      query: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      source: "지도 클릭",
+      lat,
+      lng,
+      placeId: ""
+    };
+
+    if (isKoreaPlace(pendingPlace)) return;
+
+    showPendingPlaceInfoWindow_(pendingPlace);
+  });
+}
 
   function showPendingPlaceInfoWindow_(place) {
     STATE.infoWindow.setContent(`
