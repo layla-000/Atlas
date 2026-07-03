@@ -198,27 +198,17 @@ function extractFlightRoute_(text) {
     })
     .filter(Boolean);
 
-  const airportCodeRegex = /\b([A-Z]{3})\b/g;
-  const airportCodes = [];
+  const preferredCodes = extractAirportCodesFromLines_(lines.slice(0, 80));
+  if (preferredCodes.length >= 2) {
+    result.departurePlace = preferredCodes[0];
+    result.arrivalPlace = preferredCodes[1];
+    return result;
+  }
 
-  lines.forEach(function(line) {
-    if (isBadFlightLine_(line)) {
-      return;
-    }
-
-    let match;
-    while ((match = airportCodeRegex.exec(line)) !== null) {
-      const code = match[1];
-
-      if (isLikelyAirportCode_(code) && airportCodes.indexOf(code) < 0) {
-        airportCodes.push(code);
-      }
-    }
-  });
-
-  if (airportCodes.length >= 2) {
-    result.departurePlace = airportCodes[0];
-    result.arrivalPlace = airportCodes[1];
+  const allCodes = extractAirportCodesFromLines_(lines);
+  if (allCodes.length >= 2) {
+    result.departurePlace = allCodes[0];
+    result.arrivalPlace = allCodes[1];
     return result;
   }
 
@@ -235,6 +225,25 @@ function extractFlightRoute_(text) {
   ]));
 
   return result;
+}
+
+function extractAirportCodesFromLines_(lines) {
+  const airportCodeRegex = /\b([A-Z]{3})\b/g;
+  const codes = [];
+
+  lines.forEach(function(line) {
+    if (isBadFlightLine_(line)) return;
+
+    let match;
+    while ((match = airportCodeRegex.exec(line)) !== null) {
+      const code = match[1];
+      if (isLikelyAirportCode_(code) && codes.indexOf(code) < 0) {
+        codes.push(code);
+      }
+    }
+  });
+
+  return codes;
 }
 
 function extractFlightDateTimes_(text) {
@@ -325,13 +334,24 @@ function isBadFlightLine_(line) {
 }
 
 function isLikelyAirportCode_(code) {
-  const blocked = [
-    "PDF", "PNR", "VAT", "USD", "EUR", "TRY", "TLS", "FAQ",
-    "THE", "AND", "FOR", "NOT", "ALL", "ANY", "AIR",
-    "LEE", "KIM", "PARK", "CHOI", "JUNG", "JEONG", "HAN"
-  ];
+  const normalized = String(code || "").trim().toUpperCase();
+  if (!normalized) return false;
 
-  return blocked.indexOf(String(code || "").toUpperCase()) < 0;
+  const allowedAirportCodes = getAtlasAllowedAirportCodes_();
+  return allowedAirportCodes.indexOf(normalized) >= 0;
+}
+
+function getAtlasAllowedAirportCodes_() {
+  return [
+    // Korea
+    "ICN", "GMP", "PUS", "CJU",
+
+    // Türkiye
+    "IST", "SAW", "ADB", "ESB", "AYT", "BJV", "DLM", "ASR", "NAV",
+
+    // Europe / common connections just in case
+    "FRA", "MUC", "AMS", "CDG", "LHR", "DOH", "DXB", "AUH"
+  ];
 }
 
 function normalizeFlightDateText_(value) {
