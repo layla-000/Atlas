@@ -45,22 +45,22 @@ function getAtlasMapPlacesForTrip(tripId) {
   const manualPlaces = getAtlasManualMapPlaces(tripId);
 
   manualPlaces.forEach(function(place) {
-    if (!place) return;
+  if (!place) return;
 
-    places.push({
-      id: place.id,
-      type: place.type || "manual_place",
-      category: place.category || "장소",
-      title: place.title || "",
-      address: place.address || "",
-      query: place.query || place.address || place.title || "",
-      schedule: place.schedule || "",
-      source: place.source || "Google Maps 검색",
-      placeId: place.placeId || "",
-      lat: place.lat,
-      lng: place.lng
-    });
+  pushAtlasMapPlace_(places, {
+    id: place.id,
+    type: place.type || "manual_place",
+    category: place.category || "장소",
+    title: place.title || "",
+    address: place.address || "",
+    query: place.query || place.address || place.title || "",
+    schedule: place.schedule || "",
+    source: place.source || "Google Maps 검색",
+    placeId: place.placeId || "",
+    lat: place.lat,
+    lng: place.lng
   });
+});
 
   return dedupeMapPlaces_(places);
 }
@@ -73,16 +73,16 @@ function addMapPlaceIfPresent_(places, place) {
   if (!title && !address && !query) return;
   if (isBadMapPlaceText_(query)) return;
 
-  places.push({
-    id: place.id,
-    type: place.type || "place",
-    category: getMapPlaceCategory_(place.type || ""),
-    title: title || address || query,
-    address: address,
-    query: query,
-    schedule: place.schedule || "",
-    source: place.source || ""
-  });
+pushAtlasMapPlace_(places, {
+  id: place.id,
+  type: place.type || "place",
+  category: getMapPlaceCategory_(place.type || ""),
+  title: title || address || query,
+  address: address,
+  query: query,
+  schedule: place.schedule || "",
+  source: place.source || ""
+});
 }
 
 function getMapPlaceCategory_(type) {
@@ -251,7 +251,44 @@ function readAtlasMapJson_(key, fallback) {
     return fallback;
   }
 }
+function shouldExcludeAtlasMapPlace_(place) {
+  const title = normalizeAtlasText_(place && place.title);
+  const address = normalizeAtlasText_(place && place.address);
+  const query = normalizeAtlasText_(place && place.query);
 
+  const text = [title, address, query].join(" ");
+
+  const koreaKeywords = [
+    "icn",
+    "gmp",
+    "pus",
+    "cju",
+    "incheon",
+    "gimpo",
+    "busan",
+    "jeju",
+    "seoul",
+    "korea",
+    "south korea",
+    "대한민국",
+    "한국",
+    "서울",
+    "인천",
+    "김포",
+    "부산",
+    "제주"
+  ];
+
+  return koreaKeywords.some(function(keyword) {
+    return text.indexOf(keyword) >= 0;
+  });
+}
+
+function pushAtlasMapPlace_(places, place) {
+  if (!place) return;
+  if (shouldExcludeAtlasMapPlace_(place)) return;
+  places.push(place);
+}
 function writeAtlasMapJson_(key, value) {
   PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(value));
 }
