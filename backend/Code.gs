@@ -169,6 +169,161 @@ function runAtlasUploadPipelineAfterUpload_(uploadResult) {
       error: error.message
     });
   }
+  try {
+    const folderCopyResult = copyUploadedFileToQuickFolder_(uploadResult, result);
 
+    result.steps.push({
+      step: "folder_copy",
+      result: folderCopyResult
+    });
+
+    result.folderCopyStatus = folderCopyResult.success ? "completed" : "skipped";
+  } catch (error) {
+    result.success = false;
+    result.folderCopyStatus = "failed";
+    result.steps.push({
+      step: "folder_copy",
+      error: error.message
+    });
+  }
   return result;
+}
+function copyUploadedFileToQuickFolder_(uploadResult, pipelineResult) {
+  if (!uploadResult || !uploadResult.fileId) {
+    return {
+      success: false,
+      message: "fileId가 없어 폴더 복사를 건너뛰었어요."
+    };
+  }
+
+  const record = findAtlasInboxRecordById_(uploadResult.inboxId);
+  const documentType = classifyUploadedDocumentForFolder_(uploadResult, record, pipelineResult);
+  const folderUrl = getQuickFolderUrlByDocumentType_(documentType);
+
+  if (!folderUrl) {
+    return {
+      success: false,
+      documentType: documentType,
+      message: "대상 폴더 URL이 없어 복사를 건너뛰었어요."
+    };
+  }
+
+  const folderId = extractDriveFolderId_(folderUrl);
+  if (!folderId) {
+    return {
+      success: false,
+      documentType: documentType,
+      folderUrl: folderUrl,
+      message: "Drive 폴더 ID를 찾지 못했어요."
+    };
+  }
+
+  const sourceFile = DriveApp.getFileById(uploadResult.fileId);
+  const targetFolder = DriveApp.getFolderById(folderId);
+
+  const copiedFile = sourceFile.makeCopy(sourceFile.getName(), targetFolder);
+
+  return {
+    success: true,
+    documentType: documentType,
+    targetFolderId: folderId,
+    copiedFileId: copiedFile.getId(),
+    copiedFileUrl: copiedFile.getUrl()
+  };
+}
+
+function classifyUploadedDocumentForFolder_(uploadResult, record, pipelineResult) {
+  const fileName = String(
+    uploadResult.fileName ||
+    (record && record.fileName) ||
+    ""
+  ).toLowerCase();
+
+  const parsedType =
+    getNestedValue_(record, ["result", "parsed", "documentType"]) ||
+    getNestedValue_(record, ["result", "documentType"]) ||
+    getNestedValue_(record, ["parsed", "documentType"]) ||
+    getNestedValue_(pipelineResult, ["documentType"]) ||
+    "";
+
+  const type = String(parsedType || "").toLowerCase();
+
+  if (
+    type.indexOf("flight") >= 0 ||
+    fileName.indexOf("항공") >= 0 ||
+    fileName.indexOf("flight") >= 0 ||
+    fileName.indexOf("airline") >= 0 ||
+    fileName.indexOf("boarding") >= 0 ||
+    fileName.indexOf("ticket") >= 0
+  ) {
+    return "flight";
+  }
+
+  if (
+    type.indexOf("hotel") >= 0 ||
+    type.indexOf("accommodation") >= 0 ||
+    fileName.indexOf("hotel") >= 0 ||
+    fileName.indexOf("숙소") >= 0 ||
+    fileName.indexOf("호텔") >= 0 ||
+    fileName.indexOf("booking") >= 0
+  ) {
+    return "hotel";
+  }
+
+  return "documents";
+}
+
+function getQuickFolderUrlByDocumentType_(documentType) {
+  const props = PropertiesService.getScriptProperties();
+
+  if (documentType === "flight") {
+    return props.getProperty("ATLAS_DRIVE_BOARDING_PASS_URL") || "";
+  }
+
+  if (documentType === "hotel") {
+    return props.getProperty("ATLAS_DRIVE_HOTEL_URL") || "";
+  }
+
+  return props.getProperty("ATLAS_DRIVE_DOCUMENTS_URL") || "";
+}
+
+function extractDriveFolderId_(url) {
+  const text = String(url || "");
+
+  const match = text.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (match) {
+    return match[1];
+  }
+
+  return "";
+}
+
+function findAtlasInboxRecordById_(inboxId) {
+  if (!inboxId) {
+    return null;
+  }
+
+  const records = getAtlasInboxRecords(50) || [];
+
+  for (var i = 0; i < records.length; i++) {
+    if (records[i] && records[i].id === inboxId) {
+      return records[i];
+    }
+  }
+
+  return null;
+}
+
+function getNestedValue_(object, path) {
+  let current = object;
+
+  for (var i = 0; i < path.length; i++) {
+    if (!current || typeof current !== "object") {
+      return "";
+    }
+
+    current = current[path[i]];
+  }
+
+  return current || "";
 }
