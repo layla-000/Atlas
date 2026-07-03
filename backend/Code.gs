@@ -4,7 +4,15 @@ function doPost(e) {
     const uploadResult = handleAtlasUpload(payload);
 
     const pipelineResult = runAtlasUploadPipelineAfterUpload_(uploadResult);
+if (action === "save_manual_map_place") {
+  const body = getJsonBody_(e);
+  return jsonOutput_(saveAtlasManualMapPlace(body));
+}
 
+if (action === "remove_manual_map_place") {
+  const body = getJsonBody_(e);
+  return jsonOutput_(removeAtlasManualMapPlace(body));
+}
     return createJsonResponse({
       success: true,
       message: uploadResult.message,
@@ -51,7 +59,13 @@ function doGet(e) {
   const tripId = e && e.parameter && e.parameter.tripId
     ? e.parameter.tripId
     : "trip_turkiye_2026";
+if (action === "map_places") {
+  return jsonOutput_(getAtlasMapPlacesForTrip(getTripIdFromRequest_(e)));
+}
 
+if (action === "manual_map_places") {
+  return jsonOutput_(getAtlasManualMapPlaces(getTripIdFromRequest_(e)));
+}
   return {
     success: true,
     places: getAtlasMapPlacesForTrip(tripId)

@@ -79,11 +79,28 @@ window.AtlasAPI = (() => {
     const data = await request("map_places", fallback);
     return data.places || [];
   }
+async function getMapPlaces() {
+  return request("map_places");
+}
 
-  return {
-    getBrief,
-    getMemory,
-    getTravelStatus,
-    getMapPlaces
-  };
+async function saveManualMapPlace(place) {
+  return request("save_manual_map_place", {
+    method: "POST",
+    body: JSON.stringify(place)
+  });
+}
+
+async function removeManualMapPlace(placeId) {
+  return request("remove_manual_map_place", {
+    method: "POST",
+    body: JSON.stringify({ placeId })
+  });
+}
+ return {
+  getBrief,
+  getTravelStatus,
+  getMapPlaces,
+  saveManualMapPlace,
+  removeManualMapPlace
+};
 })();

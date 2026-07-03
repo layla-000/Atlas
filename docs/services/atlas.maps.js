@@ -377,7 +377,7 @@ function initPlaceSearchControl_() {
   });
 }
 
-function addGooglePlaceToAtlasMap_(googlePlace) {
+async function addGooglePlaceToAtlasMap_(googlePlace) {
   if (!googlePlace || !googlePlace.geometry || !googlePlace.geometry.location) {
     return;
   }
@@ -386,6 +386,8 @@ function addGooglePlaceToAtlasMap_(googlePlace) {
 
   const place = {
     id: "manual_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+    tripId: getCurrentAtlasTripId_(),
+    tripName: getCurrentAtlasTripName_(),
     type: "manual_place",
     category: inferManualPlaceCategory_(googlePlace),
     title: googlePlace.name || "검색한 장소",
@@ -398,8 +400,24 @@ function addGooglePlaceToAtlasMap_(googlePlace) {
     placeId: googlePlace.place_id || ""
   };
 
-  STATE.places.push(place);
+  const exists = STATE.places.some((item) => {
+    if (!item) return false;
 
+    if (place.placeId && item.placeId && place.placeId === item.placeId) {
+      return true;
+    }
+
+    return (
+      String(item.title || "").trim().toLowerCase() === String(place.title || "").trim().toLowerCase() &&
+      String(item.address || "").trim().toLowerCase() === String(place.address || "").trim().toLowerCase()
+    );
+  });
+
+  if (exists) {
+    return;
+  }
+
+  STATE.places.push(place);
   renderMarkers();
 
   if (STATE.map) {
@@ -409,6 +427,22 @@ function addGooglePlaceToAtlasMap_(googlePlace) {
     });
     STATE.map.setZoom(CONFIG.focusedZoom);
   }
+
+  if (window.AtlasAPI && window.AtlasAPI.saveManualMapPlace) {
+    try {
+      await window.AtlasAPI.saveManualMapPlace(place);
+    } catch (error) {
+      console.warn("Failed to save manual Atlas map place", error);
+    }
+  }
+}
+
+function getCurrentAtlasTripId_() {
+  return window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+}
+
+function getCurrentAtlasTripName_() {
+  return window.AtlasConfig?.atlas?.defaultTripName || "Türkiye 2026";
 }
 
 function inferManualPlaceCategory_(googlePlace) {
