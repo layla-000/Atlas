@@ -24,40 +24,19 @@ const AtlasSchedule = (() => {
     }
   }
 
-  async function fetchScheduleFromAtlasMemory() {
-    const endpoint = window.ATLAS_API_URL || window.ATLAS_WEB_APP_URL || "";
-
-    if (!endpoint) {
-      throw new Error("ATLAS_API_URL 또는 ATLAS_WEB_APP_URL이 설정되어 있지 않아요.");
-    }
-
-    const response = await fetch(endpoint, {
-      method: "POST",
-      body: JSON.stringify({
-        action: "get_full_schedule",
-        payload: {
-          tripId: TRIP_ID,
-          startDate: START_DATE,
-          endDate: END_DATE
-        }
-      })
-    });
-
-    const text = await response.text();
-    let json;
-
-    try {
-      json = JSON.parse(text);
-    } catch {
-      throw new Error("전체 일정 응답을 JSON으로 읽을 수 없어요: " + text);
-    }
-
-    if (!json.ok) {
-      throw new Error(json.error || json.message || "전체 일정 조회에 실패했어요.");
-    }
-
-    return normalizeEvents(json.schedule || json.events || []);
+async function fetchScheduleFromAtlasMemory() {
+  if (!window.AtlasAPI || !AtlasAPI.getFullSchedule) {
+    throw new Error("AtlasAPI.getFullSchedule가 연결되어 있지 않아요.");
   }
+
+  const result = await AtlasAPI.getFullSchedule({
+    tripId: TRIP_ID,
+    startDate: START_DATE,
+    endDate: END_DATE
+  });
+
+  return normalizeEvents(result.schedule || result.events || []);
+}
 
   function normalizeEvents(events) {
     return (Array.isArray(events) ? events : [])

@@ -164,7 +164,22 @@ window.AtlasAPI = (() => {
       body: JSON.stringify({ placeId })
     });
   }
+async function getFullSchedule(params) {
+  const response = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "get_full_schedule",
+      payload: params || {}
+    })
+  });
 
+  const json = await response.json();
+  if (!json.ok) {
+    throw new Error(json.error || json.message || "전체 일정 조회에 실패했어요.");
+  }
+
+  return json;
+}
   return {
     getBrief,
     getMemory,
@@ -172,6 +187,7 @@ window.AtlasAPI = (() => {
     getMapPlaces,
         getCurrentWeather,
     saveManualMapPlace,
-    removeManualMapPlace
+    removeManualMapPlace,
+    getFullSchedule
   };
 })();
