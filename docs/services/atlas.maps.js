@@ -231,16 +231,15 @@ function openPlaceInfoWindow_(marker, place) {
   const schedule = escapeHtml_(place.schedule || "");
   const source = escapeHtml_(place.source || "");
 
-  STATE.infoWindow.setContent(`
-    <div class="atlas-map-info">
-      <div class="atlas-map-info-category">${category}</div>
-      <strong>${title}</strong>
-      ${address ? `<p>${address}</p>` : ""}
-      ${schedule ? `<p>일정: ${schedule}</p>` : ""}
-      ${source ? `<small>출처: ${source}</small>` : ""}
-    </div>
-  `);
-
+STATE.infoWindow.setContent(`
+  <div class="atlas-map-info">
+    ${category ? `<div class="atlas-map-info-category">${category}</div>` : ""}
+    <strong>${title}</strong>
+    ${address ? `<p>${address}</p>` : ""}
+    ${schedule ? `<p>일정: ${schedule}</p>` : ""}
+    ${source ? `<small>출처: ${source}</small>` : ""}
+  </div>
+`);
   STATE.infoWindow.open({
     map: STATE.map,
     anchor: marker
