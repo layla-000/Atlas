@@ -29,7 +29,7 @@ const Atlas = (() => {
     renderBriefPlaceholder();
     renderMap();
     renderTimeline([]);
-    renderStatus({});
+    void renderStatus({});
     renderActions({});
   }
 
