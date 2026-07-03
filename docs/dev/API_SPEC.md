@@ -17,7 +17,7 @@ Returns recent Atlas Memory snapshots.
 Returns recent Documents Inbox records.
 
 ### ?action=queue
-Returns queued Inbox records.
+Returns queued Inbox records..
 
 ## POST upload
 
