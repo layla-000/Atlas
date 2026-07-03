@@ -47,6 +47,16 @@ function doGet(e) {
     queue: function() {
       return { success: true, records: getQueuedInboxRecords(20) };
     },
+    map_places: function() {
+  const tripId = e && e.parameter && e.parameter.tripId
+    ? e.parameter.tripId
+    : "trip_turkiye_2026";
+
+  return {
+    success: true,
+    places: getAtlasMapPlacesForTrip(tripId)
+  };
+},
     travel_memory: function() {
       const tripId = e && e.parameter && e.parameter.tripId
         ? e.parameter.tripId

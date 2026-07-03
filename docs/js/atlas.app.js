@@ -240,17 +240,25 @@ function renderQuickActionImageCard(options) {
     </a>
   `;
 }
-  async function initializeMap() {
-    STATE.places = [
-      { id: "home", title: "Home", lat: 37.5665, lng: 126.9780 },
-      { id: "airport", title: "Incheon Airport", lat: 37.4602, lng: 126.4407 }
-    ];
+ async function initializeMap() {
+  STATE.places = [
+    { id: "home", title: "Seoul", query: "Seoul, South Korea", lat: 37.5665, lng: 126.9780 },
+    { id: "airport", title: "Incheon Airport", query: "Incheon International Airport", lat: 37.4602, lng: 126.4407 }
+  ];
 
-    await AtlasMaps.initMap({
-      elementId: "google-map",
-      places: STATE.places
-    });
+  if (window.AtlasAPI && AtlasAPI.getMapPlaces) {
+    const mapPlaces = await AtlasAPI.getMapPlaces();
+
+    if (mapPlaces && mapPlaces.length > 0) {
+      STATE.places = mapPlaces;
+    }
   }
+
+  await AtlasMaps.initMap({
+    elementId: "google-map",
+    places: STATE.places
+  });
+}
 
   function bindEvents() {
     document.addEventListener("click", (event) => {

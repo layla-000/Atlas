@@ -54,6 +54,15 @@ window.AtlasAPI = (() => {
     const data = await request("memory", fallback);
     return data.records || [];
   }
+  async function getMapPlaces() {
+  const fallback = {
+    success: true,
+    places: []
+  };
+
+  const data = await request("map_places", fallback);
+  return data.places || [];
+}
 async function getTravelStatus() {
   const fallback = {
     success: true,
@@ -68,9 +77,11 @@ async function getTravelStatus() {
   const data = await request("status", fallback);
   return data.status || fallback.status;
 }
-  return {
-    getBrief,
-    getMemory,
-    getTravelStatus
-  };
+return {
+  getBrief,
+  getMemory,
+  getTravelStatus,
+  getMapPlaces
+};
+  
 })();
