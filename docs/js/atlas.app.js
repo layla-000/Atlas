@@ -75,10 +75,10 @@ const Atlas = (() => {
     `;
 
     renderTimeline(brief.today_plan || []);
-    renderStatus({
-      time_card: brief.time_card || {},
-      next_transport: brief.next_transport || {}
-    });
+await renderStatus({
+  time_card: brief.time_card || {},
+  next_transport: brief.next_transport || {}
+});
     renderActions(brief.quick_links || brief.drive_links || {});
   }
 
@@ -132,10 +132,11 @@ const Atlas = (() => {
       </div>
     `;
   }
+  async function renderStatus(data) {
+    data = data || {};
 
-  function renderStatus(data) {
     const timeCard = data.time_card || {};
-    const transport = data.next_transport || {};
+    const weather = await getCurrentWeatherStatusItem();
 
     document.getElementById("atlas-status").innerHTML = `
       <div class="atlas-card">
@@ -154,22 +155,68 @@ const Atlas = (() => {
             </div>
 
             <div class="atlas-status-item">
-              다음 이동
-              <span class="atlas-status-value">${escapeHtml(transport.departure_time || "대기 중")}</span>
+              ${escapeHtml(weather.label)}
+              <span class="atlas-status-value">${escapeHtml(weather.value)}</span>
             </div>
           </div>
 
           <div class="atlas-next-transport">
-            <strong>${escapeHtml(transport.title || "예정된 교통편이 아직 없어요.")}</strong>
-            <p>
-              ${escapeHtml(transport.departure_place || "-")}
-              →
-              ${escapeHtml(transport.arrival_place || "-")}
-            </p>
+            <strong>${escapeHtml(weather.summary)}</strong>
+            <p>${escapeHtml(weather.detail)}</p>
           </div>
         </div>
       </div>
     `;
+  }
+
+  async function getCurrentWeatherStatusItem() {
+    const currentPlace = findCurrentWeatherPlace();
+
+    if (!currentPlace || !window.AtlasAPI?.getCurrentWeather) {
+      return {
+        label: "현재 지역 날씨",
+        value: "대기 중",
+        summary: "현재 지역 날씨를 준비하고 있어요.",
+        detail: "-"
+      };
+    }
+
+    const weather = await AtlasAPI.getCurrentWeather(currentPlace);
+
+    return {
+      label: weather.label || "현재 지역 날씨",
+      value: weather.value || "확인 불가",
+      summary: `${weather.label || "현재 지역"} 기준 날씨예요.`,
+      detail: weather.value || "-"
+    };
+  }
+
+  function findCurrentWeatherPlace() {
+    const places = STATE.places || [];
+
+    return places.find((place) => {
+      const text = [
+        place?.title,
+        place?.name,
+        place?.address,
+        place?.query
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      if (!Number.isFinite(Number(place?.lat)) || !Number.isFinite(Number(place?.lng))) return false;
+
+      return !(
+        text.includes("seoul") ||
+        text.includes("incheon") ||
+        text.includes("korea") ||
+        text.includes("서울") ||
+        text.includes("인천") ||
+        text.includes("한국") ||
+        text.includes("대한민국")
+      );
+    }) || places.find((place) =>
+      Number.isFinite(Number(place?.lat)) &&
+      Number.isFinite(Number(place?.lng))
+    );
   }
 
   function renderActions(links) {
