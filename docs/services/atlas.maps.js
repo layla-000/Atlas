@@ -15,6 +15,7 @@ const AtlasMaps = (() => {
     places: [],
     geocoder: null,
       infoWindow: null,
+        searchBox: null,
     isReady: false
   };
 
@@ -45,7 +46,7 @@ const AtlasMaps = (() => {
 
       const script = document.createElement("script");
       script.id = CONFIG.scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
       script.onload = () => resolve(window.google.maps);
@@ -98,6 +99,7 @@ const AtlasMaps = (() => {
     await resolvePlaces();
     renderMarkers();
     fitToPlaces();
+    initPlaceSearchControl_();
 
     STATE.isReady = true;
     return STATE.map;
@@ -339,7 +341,95 @@ function escapeHtml_(value) {
       }
     );
   }
+function initPlaceSearchControl_() {
+  if (!STATE.map || !window.google || !window.google.maps || !window.google.maps.places) {
+    console.warn("Google Places library is not available.");
+    return;
+  }
 
+  const input = document.createElement("input");
+  input.id = "atlas-map-search-input";
+  input.className = "atlas-map-search-input";
+  input.type = "text";
+  input.placeholder = "장소 검색 후 지도에 추가";
+  input.setAttribute("aria-label", "Search places");
+
+  STATE.map.controls[window.google.maps.ControlPosition.TOP_LEFT].push(input);
+
+  STATE.searchBox = new window.google.maps.places.SearchBox(input);
+
+  STATE.map.addListener("bounds_changed", () => {
+    STATE.searchBox.setBounds(STATE.map.getBounds());
+  });
+
+  STATE.searchBox.addListener("places_changed", () => {
+    const places = STATE.searchBox.getPlaces();
+
+    if (!places || places.length === 0) {
+      return;
+    }
+
+    places.forEach((googlePlace) => {
+      addGooglePlaceToAtlasMap_(googlePlace);
+    });
+
+    fitToPlaces();
+  });
+}
+
+function addGooglePlaceToAtlasMap_(googlePlace) {
+  if (!googlePlace || !googlePlace.geometry || !googlePlace.geometry.location) {
+    return;
+  }
+
+  const location = googlePlace.geometry.location;
+
+  const place = {
+    id: "manual_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+    type: "manual_place",
+    category: inferManualPlaceCategory_(googlePlace),
+    title: googlePlace.name || "검색한 장소",
+    address: googlePlace.formatted_address || "",
+    query: googlePlace.formatted_address || googlePlace.name || "",
+    schedule: "",
+    source: "Google Maps 검색",
+    lat: location.lat(),
+    lng: location.lng(),
+    placeId: googlePlace.place_id || ""
+  };
+
+  STATE.places.push(place);
+
+  renderMarkers();
+
+  if (STATE.map) {
+    STATE.map.panTo({
+      lat: place.lat,
+      lng: place.lng
+    });
+    STATE.map.setZoom(CONFIG.focusedZoom);
+  }
+}
+
+function inferManualPlaceCategory_(googlePlace) {
+  const types = googlePlace.types || [];
+
+  if (types.indexOf("airport") >= 0) return "공항";
+  if (types.indexOf("lodging") >= 0) return "호텔";
+  if (
+    types.indexOf("tourist_attraction") >= 0 ||
+    types.indexOf("museum") >= 0 ||
+    types.indexOf("point_of_interest") >= 0
+  ) {
+    return "관광지";
+  }
+
+  if (types.indexOf("train_station") >= 0 || types.indexOf("subway_station") >= 0) return "역";
+  if (types.indexOf("bus_station") >= 0) return "버스터미널";
+  if (types.indexOf("restaurant") >= 0 || types.indexOf("cafe") >= 0) return "음식점";
+
+  return "장소";
+}
   function clearRoute() {
     if (STATE.routeRenderer) {
       STATE.routeRenderer.setDirections({ routes: [] });
