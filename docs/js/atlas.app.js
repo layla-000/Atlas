@@ -26,9 +26,9 @@ const Atlas = (() => {
 
   function render() {
     renderHeader();
-    renderBriefPlaceholder();
     renderMap();
     renderTimeline([]);
+    renderBriefPlaceholder();
     void renderStatus({});
     renderActions({});
   }
@@ -39,14 +39,16 @@ const Atlas = (() => {
       <p class="atlas-subtitle">Travel Operating System</p>
     `;
   }
-
   function renderBriefPlaceholder() {
     document.getElementById("atlas-brief").innerHTML = `
       <div class="atlas-card">
         <div class="atlas-card-inner">
           <div class="atlas-card-label">Atlas Brief</div>
-          <h2 class="atlas-card-title">좋은 아침이에요.</h2>
-          <p class="atlas-card-text">오늘의 브리핑을 준비하고 있어요.</p>
+          <ul>
+            <li>오늘의 브리핑을 준비하고 있어요.</li>
+            <li>문서와 일정 정보를 확인하고 있어요.</li>
+            <li>필요한 액션을 정리하고 있어요.</li>
+          </ul>
         </div>
       </div>
     `;
@@ -59,17 +61,17 @@ const Atlas = (() => {
     console.log("ATLAS BRIEF RAW", brief);
     STATE.brief = brief || {};
 
-    const actions = brief.actions && brief.actions.length > 0
-      ? `<ul>${brief.actions.slice(0, 3).map((action) => `<li>${escapeHtml(action)}</li>`).join("")}</ul>`
-      : "";
+    const briefActions = brief.actions && brief.actions.length > 0
+      ? brief.actions.slice(0, 3)
+      : ["확인할 브리핑 항목이 아직 없어요."];
 
     document.getElementById("atlas-brief").innerHTML = `
       <div class="atlas-card">
         <div class="atlas-card-inner">
           <div class="atlas-card-label">Atlas Brief</div>
-          <h2 class="atlas-card-title">${escapeHtml(brief.title || "좋은 아침이에요.")}</h2>
-          <p class="atlas-card-text">${escapeHtml(brief.summary || "오늘의 브리핑을 준비하고 있어요.")}</p>
-          ${actions}
+          <ul>
+            ${briefActions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}
+          </ul>
         </div>
       </div>
     `;
@@ -100,26 +102,26 @@ await renderStatus({
     `;
   }
 
-  function renderTimeline(items) {
-    const planItems = items && items.length > 0
-      ? items.map((item) => `
-        <div class="atlas-plan-item">
-          <div class="atlas-plan-time">${escapeHtml(item.time || "--:--")}</div>
-          <div>
-            <span class="atlas-plan-name">${escapeHtml(item.title || item.label || "오늘 일정")}</span>
-            <span class="atlas-plan-location">${escapeHtml(item.location || item.label || "")}</span>
-          </div>
+   function renderTimeline(items) {
+    const safeItems = Array.isArray(items) ? items.slice(0, 3) : [];
+
+    while (safeItems.length < 3) {
+      safeItems.push({
+        time: "--:--",
+        title: "표시할 확정 일정이 아직 없어요.",
+        location: "Atlas가 문서를 더 읽으면 여기에 표시해요."
+      });
+    }
+
+    const planItems = safeItems.map((item) => `
+      <div class="atlas-plan-item">
+        <div class="atlas-plan-time">${escapeHtml(item.time || "--:--")}</div>
+        <div>
+          <span class="atlas-plan-name">${escapeHtml(item.title || item.label || "오늘 일정")}</span>
+          <span class="atlas-plan-location">${escapeHtml(item.location || "")}</span>
         </div>
-      `).join("")
-      : `
-        <div class="atlas-plan-item">
-          <div class="atlas-plan-time">--:--</div>
-          <div>
-            <span class="atlas-plan-name">오늘 표시할 확정 일정이 아직 없어요.</span>
-            <span class="atlas-plan-location">Atlas가 문서를 더 읽으면 여기에 표시해요.</span>
-          </div>
-        </div>
-      `;
+      </div>
+    `).join("");
 
     document.getElementById("atlas-plan").innerHTML = `
       <div class="atlas-card">
