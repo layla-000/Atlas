@@ -358,27 +358,119 @@ function initPlaceSearchControl_() {
   STATE.map.controls[window.google.maps.ControlPosition.TOP_LEFT].push(input);
 
   const autocomplete = new window.google.maps.places.Autocomplete(input, {
-    fields: ["place_id", "name", "formatted_address", "geometry", "types"],
-    componentRestrictions: { country: ["tr", "kr"] }
+    fields: ["place_id", "name", "formatted_address", "geometry", "types"]
   });
 
   autocomplete.bindTo("bounds", STATE.map);
 
   autocomplete.addListener("place_changed", () => {
     const place = autocomplete.getPlace();
+    console.log("ATLAS SEARCH SELECTED PLACE", place);
 
     if (!place || !place.geometry || !place.geometry.location) {
       console.warn("Atlas place search returned no geometry:", place);
       return;
     }
 
-    addGooglePlaceToAtlasMap_(place);
+    showPendingPlaceInfoWindow_(buildManualPlaceFromGooglePlace_(place));
     input.value = "";
   });
 
   STATE.searchBox = autocomplete;
 }
+function buildManualPlaceFromGooglePlace_(googlePlace) {
+  const location = googlePlace.geometry.location;
 
+  return {
+    id: "manual_" + Date.now() + "_" + Math.random().toString(16).slice(2),
+    tripId: getCurrentAtlasTripId_(),
+    tripName: getCurrentAtlasTripName_(),
+    type: "manual_place",
+    category: inferManualPlaceCategory_(googlePlace),
+    title: googlePlace.name || "검색한 장소",
+    address: googlePlace.formatted_address || "",
+    query: googlePlace.formatted_address || googlePlace.name || "",
+    schedule: "",
+    source: "Google Maps 검색",
+    lat: location.lat(),
+    lng: location.lng(),
+    placeId: googlePlace.place_id || ""
+  };
+}
+
+function showPendingPlaceInfoWindow_(place) {
+  if (!STATE.map || !STATE.infoWindow) return;
+
+  const pendingMarker = new window.google.maps.Marker({
+    map: STATE.map,
+    position: {
+      lat: Number(place.lat),
+      lng: Number(place.lng)
+    },
+    title: place.title || "검색한 장소"
+  });
+
+  STATE.infoWindow.setContent(`
+    <div class="atlas-map-info atlas-map-info-pending">
+      <div class="atlas-map-info-category">${escapeHtml_(place.category || "장소")}</div>
+      <strong>${escapeHtml_(place.title || "검색한 장소")}</strong>
+      ${place.address ? `<p>${escapeHtml_(place.address)}</p>` : ""}
+      <button type="button" class="atlas-map-add-button" data-atlas-add-place="true">
+        + Add to Atlas
+      </button>
+    </div>
+  `);
+
+  STATE.infoWindow.open({
+    map: STATE.map,
+    anchor: pendingMarker
+  });
+
+  STATE.map.panTo({
+    lat: Number(place.lat),
+    lng: Number(place.lng)
+  });
+  STATE.map.setZoom(CONFIG.focusedZoom);
+
+  window.google.maps.event.addListenerOnce(STATE.infoWindow, "domready", () => {
+    const button = document.querySelector('[data-atlas-add-place="true"]');
+    if (!button) {
+      console.warn("Atlas pending add button not found");
+      return;
+    }
+
+    button.addEventListener("click", () => {
+      confirmAddPendingPlace_(place, pendingMarker);
+    });
+  });
+}
+
+function confirmAddPendingPlace_(place, pendingMarker) {
+  const exists = STATE.places.some((item) => {
+    if (!item) return false;
+
+    if (place.placeId && item.placeId && place.placeId === item.placeId) {
+      return true;
+    }
+
+    return (
+      String(item.title || "").trim().toLowerCase() === String(place.title || "").trim().toLowerCase() &&
+      String(item.address || "").trim().toLowerCase() === String(place.address || "").trim().toLowerCase()
+    );
+  });
+
+  if (!exists) {
+    STATE.places.push(place);
+    saveManualPlacesToStorage_();
+  }
+
+  if (pendingMarker) {
+    pendingMarker.setMap(null);
+  }
+
+  STATE.infoWindow.close();
+  renderMarkers();
+}
 function addGooglePlaceToAtlasMap_(googlePlace) {
   if (!googlePlace || !googlePlace.geometry || !googlePlace.geometry.location) return;
 
@@ -401,71 +493,6 @@ function addGooglePlaceToAtlasMap_(googlePlace) {
   };
 
   showPendingPlaceInfoWindow_(place);
-}
-function showPendingPlaceInfoWindow_(place) {
-  if (!STATE.map || !STATE.infoWindow) return;
-
-  const marker = new window.google.maps.Marker({
-    map: STATE.map,
-    position: { lat: Number(place.lat), lng: Number(place.lng) },
-    title: place.title || "검색한 장소"
-  });
-
-  marker.__atlasPending = true;
-
-  STATE.infoWindow.setContent(`
-    <div class="atlas-map-info">
-      <div class="atlas-map-info-category">${escapeHtml_(place.category || "장소")}</div>
-      <strong>${escapeHtml_(place.title || "검색한 장소")}</strong>
-      ${place.address ? `<p>${escapeHtml_(place.address)}</p>` : ""}
-      <button class="atlas-map-add-button" id="atlas-map-add-place-button">
-        + Add to Atlas
-      </button>
-    </div>
-  `);
-
-  STATE.infoWindow.open({ map: STATE.map, anchor: marker });
-
-  window.setTimeout(() => {
-    const button = document.getElementById("atlas-map-add-place-button");
-    if (!button) return;
-
-    button.addEventListener("click", () => {
-      confirmAddPendingPlace_(place, marker);
-    });
-  }, 0);
-
-  STATE.map.panTo({ lat: Number(place.lat), lng: Number(place.lng) });
-  STATE.map.setZoom(CONFIG.focusedZoom);
-}
-
-function confirmAddPendingPlace_(place, marker) {
-  const exists = STATE.places.some((item) => {
-    if (!item) return false;
-    if (place.placeId && item.placeId && place.placeId === item.placeId) return true;
-
-    return (
-      String(item.title || "").trim().toLowerCase() === String(place.title || "").trim().toLowerCase() &&
-      String(item.address || "").trim().toLowerCase() === String(place.address || "").trim().toLowerCase()
-    );
-  });
-
-  if (!exists) {
-    STATE.places.push(place);
-    saveManualPlacesToStorage_();
-  }
-
-  if (marker) marker.setMap(null);
-
-  renderMarkers();
-
-  const savedMarker = STATE.markers.find((item) => {
-    return item.getTitle && item.getTitle() === place.title;
-  });
-
-  if (savedMarker) {
-    openPlaceInfoWindow_(savedMarker, place);
-  }
 }
 function getAtlasManualPlacesStorageKey_() {
   return "ATLAS_MANUAL_MAP_PLACES__" + getCurrentAtlasTripId_();
