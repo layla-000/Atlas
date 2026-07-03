@@ -247,7 +247,7 @@ function enrichBriefForDashboardPracticality_(brief, memory) {
 
   brief.today_plan = buildTodayPlanFromMemory_(memory);
   brief.time_card = buildAtlasTimeCard_(memory);
-  brief.next_transport = buildNextTransportFromMemory_(memory);
+  brief.next_transport = buildNextTransportFromMemory_(memory, brief.insights);
   brief.quick_links = getAtlasQuickLinks();
   brief.drive_links = brief.quick_links;
 
@@ -411,23 +411,33 @@ function getAtlasLocalTimeLabel_(memory) {
   return "튀르키예 시간";
 }
 
-function buildNextTransportFromMemory_(memory) {
-  if (!memory || !memory.entities || !memory.entities.length) {
-    return emptyNextTransport_();
-  }
-
+function buildNextTransportFromMemory_(memory, insights) {
   const now = new Date();
   const candidates = [];
 
-  memory.entities.forEach(function(entity) {
-    const normalized = normalizeAtlasEntity_(entity);
-    if (!normalized || !isTransportEntityType_(normalized.type)) return;
+  if (memory && memory.entities && memory.entities.length) {
+    memory.entities.forEach(function(entity) {
+      const normalized = normalizeAtlasEntity_(entity);
+      if (!normalized || !isTransportEntityType_(normalized.type)) return;
 
-    const candidate = buildTransportCandidate_(normalized, now);
-    if (candidate) {
-      candidates.push(candidate);
-    }
-  });
+      const candidate = buildTransportCandidate_(normalized, now);
+      if (candidate) candidates.push(candidate);
+    });
+  }
+
+  if (memory && memory.items && memory.items.length) {
+    memory.items.forEach(function(item) {
+      const candidate = buildTransportCandidateFromMemoryItem_(item, now);
+      if (candidate) candidates.push(candidate);
+    });
+  }
+
+  if (insights && insights.length) {
+    insights.forEach(function(insight) {
+      const candidate = buildTransportCandidateFromInsight_(insight, now);
+      if (candidate) candidates.push(candidate);
+    });
+  }
 
   if (!candidates.length) {
     return emptyNextTransport_();
@@ -454,12 +464,16 @@ function buildNextTransportFromMemory_(memory) {
 function buildTransportCandidate_(entity, now) {
   const props = entity.properties || {};
 
-  const departureDate =
-    props.departure_date ||
-    props.date ||
-    props.travel_date ||
-    props.start_date ||
-    "";
+ const departureDate =
+  props.departure_date ||
+  props.departureDate ||
+  props.date ||
+  props.travel_date ||
+  props.travelDate ||
+  props.start_date ||
+  props.startDate ||
+  props.departure ||
+  "";
 
   if (!departureDate) return null;
 
@@ -471,11 +485,11 @@ function buildTransportCandidate_(entity, now) {
   }
 
   const transportType = mapTransportType_(entity.type);
-  const operator = props.operator || props.airline || props.railway || props.company || "";
-  const number = props.flight_number || props.train_number || props.bus_number || props.reference || "";
-  const departurePlace = props.departure_place || props.from || props.origin || props.departure_station || props.departure_airport || "";
-  const arrivalPlace = props.arrival_place || props.to || props.destination || props.arrival_station || props.arrival_airport || "";
-  const arrivalTime = normalizeTimeText_(props.arrival_time || "");
+const operator = props.operator || props.airline || props.carrier || props.railway || props.company || "";
+const number = props.flight_number || props.flightNumber || props.train_number || props.trainNumber || props.bus_number || props.busNumber || props.reference || props.bookingReference || "";
+const departurePlace = props.departure_place || props.departurePlace || props.from || props.origin || props.departure_station || props.departureStation || props.departure_airport || props.departureAirport || "";
+const arrivalPlace = props.arrival_place || props.arrivalPlace || props.to || props.destination || props.arrival_station || props.arrivalStation || props.arrival_airport || props.arrivalAirport || "";
+const arrivalTime = normalizeTimeText_(props.arrival_time || props.arrivalTime || "");
   const reference = number || props.reference || "";
   const title = buildTransportTitle_(transportType, operator, number, departurePlace, arrivalPlace);
 
@@ -488,6 +502,53 @@ function buildTransportCandidate_(entity, now) {
     arrival_place: arrivalPlace,
     arrival_time: arrivalTime,
     reference: reference
+  };
+}
+
+function buildTransportCandidateFromMemoryItem_(item, now) {
+  if (!item || !isTransportEntityType_(item.objectType)) return null;
+
+  const object = item.object || {};
+
+  const normalized = {
+    type: item.objectType,
+    title: object.title || object.name || "",
+    properties: object
+  };
+
+  return buildTransportCandidate_(normalized, now);
+}
+
+function buildTransportCandidateFromInsight_(insight, now) {
+  if (!insight || !isTransportEntityType_(insight.type)) return null;
+
+  const text = [
+    insight.message,
+    insight.title,
+    insight.summary,
+    insight.action
+  ].filter(Boolean).join(" ");
+
+  const routeMatch = text.match(/([A-Z]{3})\s*→\s*([A-Z]{3})/);
+  if (!routeMatch) return null;
+
+  const carrierMatch = text.match(/(Turkish Airlines|Korean Air|Asiana Airlines|대한항공|아시아나)/i);
+
+  return {
+    timestamp: Number.MAX_SAFE_INTEGER,
+    transport_type: normalizeTransportTypeForCard_(insight.type),
+    title: buildTransportTitle_(
+      mapTransportType_(insight.type),
+      carrierMatch ? carrierMatch[1] : "항공편",
+      "",
+      routeMatch[1],
+      routeMatch[2]
+    ),
+    departure_place: routeMatch[1],
+    departure_time: "",
+    arrival_place: routeMatch[2],
+    arrival_time: "",
+    reference: ""
   };
 }
 
