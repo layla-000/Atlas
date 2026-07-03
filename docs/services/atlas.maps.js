@@ -356,25 +356,26 @@ function initPlaceSearchControl_() {
 
   STATE.map.controls[window.google.maps.ControlPosition.TOP_LEFT].push(input);
 
-  STATE.searchBox = new window.google.maps.places.SearchBox(input);
-
-  STATE.map.addListener("bounds_changed", () => {
-    STATE.searchBox.setBounds(STATE.map.getBounds());
+  const autocomplete = new window.google.maps.places.Autocomplete(input, {
+    fields: ["place_id", "name", "formatted_address", "geometry", "types"],
+    componentRestrictions: { country: ["tr", "kr"] }
   });
 
-  STATE.searchBox.addListener("places_changed", () => {
-    const places = STATE.searchBox.getPlaces();
+  autocomplete.bindTo("bounds", STATE.map);
 
-    if (!places || places.length === 0) {
+  autocomplete.addListener("place_changed", () => {
+    const place = autocomplete.getPlace();
+
+    if (!place || !place.geometry || !place.geometry.location) {
+      console.warn("Atlas place search returned no geometry:", place);
       return;
     }
 
-    places.forEach((googlePlace) => {
-      addGooglePlaceToAtlasMap_(googlePlace);
-    });
-
-    fitToPlaces();
+    addGooglePlaceToAtlasMap_(place);
+    input.value = "";
   });
+
+  STATE.searchBox = autocomplete;
 }
 
 async function addGooglePlaceToAtlasMap_(googlePlace) {
