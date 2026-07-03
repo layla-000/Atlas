@@ -54,34 +54,36 @@ window.AtlasAPI = (() => {
     const data = await request("memory", fallback);
     return data.records || [];
   }
+
+  async function getTravelStatus() {
+    const fallback = {
+      success: true,
+      status: {
+        status: "demo",
+        title: "Travel Status",
+        summary: "Atlas Travel Status 연결을 준비하고 있어요.",
+        items: []
+      }
+    };
+
+    const data = await request("status", fallback);
+    return data.status || fallback.status;
+  }
+
   async function getMapPlaces() {
-  const fallback = {
-    success: true,
-    places: []
-  };
+    const fallback = {
+      success: true,
+      places: []
+    };
 
-  const data = await request("map_places", fallback);
-  return data.places || [];
-}
-async function getTravelStatus() {
-  const fallback = {
-    success: true,
-    status: {
-      status: "demo",
-      title: "Travel Status",
-      summary: "Atlas Travel Status 연결을 준비하고 있어요.",
-      items: []
-    }
-  };
+    const data = await request("map_places", fallback);
+    return data.places || [];
+  }
 
-  const data = await request("status", fallback);
-  return data.status || fallback.status;
-}
-return {
-  getBrief,
-  getMemory,
-  getTravelStatus,
-  getMapPlaces
-};
-  
+  return {
+    getBrief,
+    getMemory,
+    getTravelStatus,
+    getMapPlaces
+  };
 })();
