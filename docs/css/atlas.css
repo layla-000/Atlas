@@ -816,3 +816,16 @@ button {
 .atlas-map-delete-button:hover {
   filter: brightness(1.03);
 }
+.atlas-map-info-title-link {
+  display: block;
+  margin: 0;
+  color: #1a1f1e;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.atlas-map-info-title-link:hover {
+  text-decoration: underline;
+}

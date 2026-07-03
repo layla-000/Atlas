@@ -213,22 +213,31 @@ function inferManualPlaceCategory_(googlePlace) {
   }
 
   function openPlaceInfoWindow_(marker, place) {
-    STATE.infoWindow.setContent(`
-      <div class="atlas-map-info">
-        <strong>${escapeHtml_(place.title || place.name || "Atlas place")}</strong>
-        ${place.address || place.query ? `<p>${escapeHtml_(place.address || place.query)}</p>` : ""}
-        <button class="atlas-map-delete-button" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete</button>
-      </div>
-    `);
+  const googleMapsUrl = buildGoogleMapsUrl_(place);
 
-    STATE.infoWindow.open({ map: STATE.map, anchor: marker });
+  STATE.infoWindow.setContent(`
+    <div class="atlas-map-info">
+      <a
+        class="atlas-map-info-title-link"
+        href="${googleMapsUrl}"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        ${escapeHtml_(place.title || place.name || "Atlas place")}
+      </a>
+      ${place.address || place.query ? `<p>${escapeHtml_(place.address || place.query)}</p>` : ""}
+      <button class="atlas-map-delete-button" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete</button>
+    </div>
+  `);
 
-    window.google.maps.event.addListenerOnce(STATE.infoWindow, "domready", () => {
-      const button = document.querySelector(`[data-atlas-delete-place="${cssEscape_(place.id)}"]`);
-      if (!button) return;
-      button.addEventListener("click", () => deletePlace_(place.id));
-    });
-  }
+  STATE.infoWindow.open({ map: STATE.map, anchor: marker });
+
+  window.google.maps.event.addListenerOnce(STATE.infoWindow, "domready", () => {
+    const button = document.querySelector(`[data-atlas-delete-place="${cssEscape_(place.id)}"]`);
+    if (!button) return;
+    button.addEventListener("click", () => deletePlace_(place.id));
+  });
+}
 
   function initMapClickToAdd_() {
   if (!STATE.map || !window.google?.maps) return;
@@ -282,24 +291,33 @@ function inferManualPlaceCategory_(googlePlace) {
   });
 }
 
-  function showPendingPlaceInfoWindow_(place) {
-    STATE.infoWindow.setContent(`
-      <div class="atlas-map-info">
-        <strong>${escapeHtml_(place.title)}</strong>
-        <p>${escapeHtml_(place.address)}</p>
-        <button class="atlas-map-add-button" type="button" data-atlas-add-place="true">Add to Atlas</button>
-      </div>
-    `);
+ function showPendingPlaceInfoWindow_(place) {
+  const googleMapsUrl = buildGoogleMapsUrl_(place);
 
-    STATE.infoWindow.setPosition({ lat: Number(place.lat), lng: Number(place.lng) });
-    STATE.infoWindow.open({ map: STATE.map });
+  STATE.infoWindow.setContent(`
+    <div class="atlas-map-info">
+      <a
+        class="atlas-map-info-title-link"
+        href="${googleMapsUrl}"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        ${escapeHtml_(place.title)}
+      </a>
+      <p>${escapeHtml_(place.address)}</p>
+      <button class="atlas-map-add-button" type="button" data-atlas-add-place="true">Add to Atlas</button>
+    </div>
+  `);
 
-    window.google.maps.event.addListenerOnce(STATE.infoWindow, "domready", () => {
-      const button = document.querySelector('[data-atlas-add-place="true"]');
-      if (!button) return;
-      button.addEventListener("click", () => addPlace_(place));
-    });
-  }
+  STATE.infoWindow.setPosition({ lat: Number(place.lat), lng: Number(place.lng) });
+  STATE.infoWindow.open({ map: STATE.map });
+
+  window.google.maps.event.addListenerOnce(STATE.infoWindow, "domready", () => {
+    const button = document.querySelector('[data-atlas-add-place="true"]');
+    if (!button) return;
+    button.addEventListener("click", () => addPlace_(place));
+  });
+}
 
   function addPlace_(place) {
     if (!place || isKoreaPlace(place)) return;
@@ -379,7 +397,16 @@ function inferManualPlaceCategory_(googlePlace) {
   function isReady() {
     return STATE.isReady;
   }
+function buildGoogleMapsUrl_(place) {
+  if (place?.placeId) {
+    return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(place.placeId)}`;
+  }
 
+  const query = place?.address || place?.query || place?.title || "";
+  if (!query) return "https://www.google.com/maps";
+
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
   function escapeHtml_(value) {
     return String(value || "")
       .replaceAll("&", "&amp;")
