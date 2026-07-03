@@ -1,38 +1,41 @@
 function doPost(e) {
   try {
     const action = e && e.parameter ? e.parameter.action : "";
+    const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
 
     if (action === "save_manual_map_place") {
-      const payload = JSON.parse(e.postData.contents || "{}");
-      return createJsonResponse(saveAtlasManualMapPlace(payload));
+      return createJsonResponse(saveAtlasManualMapPlace(body));
     }
 
     if (action === "remove_manual_map_place") {
-      const payload = JSON.parse(e.postData.contents || "{}");
-      return createJsonResponse(removeAtlasManualMapPlace(payload));
+      return createJsonResponse(removeAtlasManualMapPlace(body));
     }
-if (body.action === "create_schedule") {
-  return createAtlasJsonResponse(handleAtlasScheduleCreate(body.payload));
-}
-    const payload = JSON.parse(e.postData.contents);
-    const uploadResult = handleAtlasUpload(payload);
+
+    if (body.action === "create_schedule") {
+      return createJsonResponse(handleAtlasScheduleCreate(body.payload));
+    }
+
+    const uploadResult = handleAtlasUpload(body);
     const pipelineResult = runAtlasUploadPipelineAfterUpload_(uploadResult);
 
     return createJsonResponse({
       success: true,
+      ok: true,
       message: uploadResult.message,
       fileUrl: uploadResult.fileUrl,
       fileId: uploadResult.fileId,
       inboxId: uploadResult.inboxId,
       pipeline: pipelineResult
     });
- } catch (error) {
-  return createAtlasJsonResponse({
-    ok: false,
-    error: error && error.message ? error.message : String(error),
-    stack: error && error.stack ? error.stack : ""
-  });
-}
+
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      ok: false,
+      error: error && error.message ? error.message : String(error),
+      stack: error && error.stack ? error.stack : ""
+    });
+  }
 }
 
 function doGet(e) {
