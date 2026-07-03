@@ -6,13 +6,20 @@ window.AtlasAPI = (() => {
 
   async function request(action, fallback, options) {
     const endpoint = getBackendEndpoint();
-    if (!endpoint) return fallback;
+    if (!endpoint) {
+      console.warn("AtlasAPI endpoint is missing.");
+      return fallback;
+    }
 
     const url = `${endpoint}?action=${encodeURIComponent(action)}`;
+    console.log("AtlasAPI request:", action, url);
 
     try {
       const response = await fetch(url, options || {});
+      console.log("AtlasAPI response:", action, response.status, response.statusText);
+
       const data = await response.json();
+      console.log("AtlasAPI data:", action, data);
 
       if (!data || data.success === false) return fallback;
       return data;
