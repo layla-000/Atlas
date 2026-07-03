@@ -207,16 +207,46 @@ function buildHotelBriefMessage_(object) {
 }
 
 function buildFlightBriefMessage_(object) {
-  const airline = object.airline || "항공권";
-  const route = [object.departurePlace || object.departureAirport, object.arrivalPlace || object.arrivalAirport]
+  object = object || {};
+
+  const airline = object.airline || object.carrier || object.operator || "항공권";
+
+  const flightNumber =
+    object.flight_number ||
+    object.flightNumber ||
+    object.flight_no ||
+    object.flightNo ||
+    object.flight ||
+    object.flight_code ||
+    object.flightCode ||
+    object.number ||
+    object.code ||
+    "";
+
+  const route = [
+    object.departurePlace ||
+      object.departureAirport ||
+      object.departure_airport ||
+      object.departure_place ||
+      object.from ||
+      object.origin,
+    object.arrivalPlace ||
+      object.arrivalAirport ||
+      object.arrival_airport ||
+      object.arrival_place ||
+      object.to ||
+      object.destination
+  ]
     .filter(Boolean)
     .join(" → ");
 
+  const flightLabel = [airline, flightNumber].filter(Boolean).join(" ");
+
   if (route) {
-    return airline + " " + route + " 항공 정보가 Atlas Memory에 반영되었어요.";
+    return flightLabel + " " + route + " 항공 정보가 Atlas Memory에 반영되었어요.";
   }
 
-  return airline + " 항공권 문서가 Atlas Memory에 반영되었어요.";
+  return flightLabel + " 항공권 문서가 Atlas Memory에 반영되었어요.";
 }
 
 function buildTourBriefMessage_(object) {
