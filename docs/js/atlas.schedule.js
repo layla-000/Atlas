@@ -66,8 +66,8 @@ const date = String(event.date || start || "").slice(0, 10);
           title: event.title || event.name || "일정",
           location: event.location || event.place || event.address || "",
           type: event.scheduleType || event.schedule_type || event.type || "etc",
-          confirmationNumber: event.confirmationNumber || event.confirmation_number || (event.details || {}).confirmationNumber || "",
-          notes: event.notes || event.note || event.memo || "",
+          confirmationNumber: getConfirmationNumber(event),
+          notes: getEventNotes(event),
           route: event.route || event.summary || ""
         };
       })
@@ -76,6 +76,39 @@ const date = String(event.date || start || "").slice(0, 10);
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         return (a.time || "99:99").localeCompare(b.time || "99:99");
       });
+  }
+
+  function getConfirmationNumber(event) {
+    const details = event.details || {};
+
+    return (
+      event.confirmationNumber ||
+      event.confirmation_number ||
+      event.reservationNumber ||
+      event.reservation_number ||
+      event.bookingReference ||
+      event.booking_reference ||
+      event.bookingNo ||
+      event.booking_no ||
+      event.pnr ||
+      event.PNR ||
+      details.confirmationNumber ||
+      details.confirmation_number ||
+      details.reservationNumber ||
+      details.reservation_number ||
+      details.bookingReference ||
+      details.booking_reference ||
+      details.bookingNo ||
+      details.booking_no ||
+      details.pnr ||
+      details.PNR ||
+      ""
+    );
+  }
+
+  function getEventNotes(event) {
+    const details = event.details || {};
+    return event.notes || event.note || event.memo || details.notes || details.note || details.memo || "";
   }
 
   function applyEvents(events) {
