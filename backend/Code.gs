@@ -24,7 +24,9 @@ if (body.action === "get_full_schedule") {
       return createJsonResponse(handleAtlasScheduleCreate(body.payload));
     }
 
-    
+    if (body.action === "weather") {
+  return createJsonResponse(getAtlasCurrentWeather_(body.payload || {}));
+}
 
     const uploadResult = handleAtlasUpload(body);
     const pipelineResult = runAtlasUploadPipelineAfterUpload_(uploadResult);
@@ -513,4 +515,95 @@ function testResetAtlasMemoryOnly() {
   const result = resetAtlasMemoryOnly_("trip_turkiye_2026");
   Logger.log(JSON.stringify(result, null, 2));
   return result;
+}
+function getAtlasCurrentWeather_(payload) {
+  payload = payload || {};
+
+  const lat = Number(payload.lat);
+  const lng = Number(payload.lng);
+  const region = payload.region || "현재 지역";
+
+  if (!isFinite(lat) || !isFinite(lng)) {
+    return {
+      success: false,
+      ok: false,
+      weather: {
+        label: region + " 날씨",
+        value: "확인 대기"
+      }
+    };
+  }
+
+  try {
+    const url =
+      "https://api.open-meteo.com/v1/forecast" +
+      "?latitude=" + encodeURIComponent(lat) +
+      "&longitude=" + encodeURIComponent(lng) +
+      "&current=temperature_2m,weather_code" +
+      "&timezone=auto";
+
+    const response = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true
+    });
+
+    const statusCode = response.getResponseCode();
+    const text = response.getContentText();
+
+    if (statusCode < 200 || statusCode >= 300) {
+      throw new Error("Weather API status " + statusCode);
+    }
+
+    const data = JSON.parse(text);
+    const temperature = data && data.current ? data.current.temperature_2m : null;
+    const weatherCode = data && data.current ? data.current.weather_code : null;
+
+    if (temperature === null || weatherCode === null) {
+      throw new Error("Weather API 응답에 current 값이 없어요.");
+    }
+
+    return {
+      success: true,
+      ok: true,
+      weather: {
+        label: region + " 날씨",
+        value: Math.round(Number(temperature)) + "°C · " + getAtlasWeatherLabelFromCode_(weatherCode)
+      }
+    };
+  } catch (error) {
+    return {
+      success: false,
+      ok: false,
+      error: error.message,
+      weather: {
+        label: region + " 날씨",
+        value: "확인 대기"
+      }
+    };
+  }
+}
+
+function getAtlasWeatherLabelFromCode_(code) {
+  const weatherMap = {
+    0: "맑음",
+    1: "대체로 맑음",
+    2: "부분적으로 흐림",
+    3: "흐림",
+    45: "안개",
+    48: "서리 안개",
+    51: "약한 이슬비",
+    53: "이슬비",
+    55: "강한 이슬비",
+    61: "약한 비",
+    63: "비",
+    65: "강한 비",
+    71: "약한 눈",
+    73: "눈",
+    75: "강한 눈",
+    80: "약한 소나기",
+    81: "소나기",
+    82: "강한 소나기",
+    95: "뇌우"
+  };
+
+  return weatherMap[Number(code)] || "날씨 확인 중";
 }

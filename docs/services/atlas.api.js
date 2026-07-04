@@ -90,51 +90,42 @@ window.AtlasAPI = (() => {
 
     return weatherMap[Number(code)] || "날씨 확인 중";
   }
-
-  async function getCurrentWeather(place) {
-    if (!place || !Number.isFinite(Number(place.lat)) || !Number.isFinite(Number(place.lng))) {
-      return {
-        label: "현재 지역 날씨",
-        value: "대기 중"
-      };
-    }
-
-    const region = place.city || place.title || place.name || "현재 지역";
-    const url =
-      "https://api.open-meteo.com/v1/forecast" +
-      `?latitude=${encodeURIComponent(place.lat)}` +
-      `&longitude=${encodeURIComponent(place.lng)}` +
-      "&current=temperature_2m,weather_code" +
-      "&timezone=auto";
-
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-
-      const temperature = data?.current?.temperature_2m;
-      const weatherCode = data?.current?.weather_code;
-
-      if (temperature === undefined || weatherCode === undefined) {
-        return {
-          label: `${region} 날씨`,
-          value: "확인 불가"
-        };
-      }
-
-      return {
-        label: `${region} 날씨`,
-        value: `${Math.round(Number(temperature))}°C · ${getWeatherLabelFromCode(weatherCode)}`
-      };
-   } catch (error) {
-  console.warn("Atlas weather request failed:", error);
-
-  return {
-    label: `${region} 날씨`,
-    value: "확인 대기",
-    error: true
-  };
-}
+async function getCurrentWeather(place) {
+  if (!place || !Number.isFinite(Number(place.lat)) || !Number.isFinite(Number(place.lng))) {
+    return {
+      label: "현재 지역 날씨",
+      value: "대기 중"
+    };
   }
+
+  const region = place.city || place.title || place.name || "현재 지역";
+
+  const fallback = {
+    success: false,
+    ok: false,
+    weather: {
+      label: `${region} 날씨`,
+      value: "확인 대기"
+    }
+  };
+
+  const data = await request("weather", fallback, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      action: "weather",
+      payload: {
+        lat: Number(place.lat),
+        lng: Number(place.lng),
+        region: region
+      }
+    })
+  });
+
+  return data.weather || fallback.weather;
+}
 
   async function getMapPlaces() {
     const fallback = { success: true, places: [] };
