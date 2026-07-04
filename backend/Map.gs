@@ -137,6 +137,7 @@ function saveAtlasManualMapPlace(payload) {
 
   const tripId = String(payload.tripId || getDefaultAtlasTripId_()).trim();
   const tripName = String(payload.tripName || getDefaultAtlasTripName_()).trim();
+  const now = new Date().toISOString();
 
   const place = {
     id: payload.id || createAtlasMapId_("manual_place"),
@@ -152,7 +153,8 @@ function saveAtlasManualMapPlace(payload) {
     placeId: String(payload.placeId || "").trim(),
     lat: Number(payload.lat),
     lng: Number(payload.lng),
-    createdAt: new Date().toISOString()
+    createdAt: String(payload.createdAt || now),
+    updatedAt: now
   };
 
   if (!place.title) {
@@ -163,61 +165,83 @@ function saveAtlasManualMapPlace(payload) {
     throw new Error("saveAtlasManualMapPlace: valid lat/lng is required");
   }
 
-  const key = getAtlasManualMapPlacesKey_(tripId);
-  const existing = readAtlasMapJson_(key, []);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
 
-  const deduped = existing.filter(function(item) {
-    if (!item) return false;
+  try {
+    const key = getAtlasManualMapPlacesKey_(tripId);
+    const existing = readAtlasMapJson_(key, []);
 
-    if (place.placeId && item.placeId && item.placeId === place.placeId) {
-      return false;
-    }
+    const deduped = existing.filter(function(item) {
+      if (!item) return false;
 
-    if (
-      normalizeAtlasText_(item.title) === normalizeAtlasText_(place.title) &&
-      normalizeAtlasText_(item.address) === normalizeAtlasText_(place.address)
-    ) {
-      return false;
-    }
+      if (item.id && item.id === place.id) {
+        return false;
+      }
 
-    return true;
-  });
+      if (place.placeId && item.placeId && item.placeId === place.placeId) {
+        return false;
+      }
 
-  deduped.push(place);
-  writeAtlasMapJson_(key, deduped);
+      if (
+        normalizeAtlasText_(item.title) === normalizeAtlasText_(place.title) &&
+        normalizeAtlasText_(item.address) === normalizeAtlasText_(place.address)
+      ) {
+        return false;
+      }
 
-  return {
-    success: true,
-    tripId: tripId,
-    place: place,
-    count: deduped.length
-  };
+      return true;
+    });
+
+    deduped.push(place);
+    writeAtlasMapJson_(key, deduped);
+
+    return {
+      success: true,
+      ok: true,
+      tripId: tripId,
+      place: place,
+      count: deduped.length,
+      storage: "drive_json"
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function removeAtlasManualMapPlace(payload) {
   payload = payload || {};
 
   const tripId = String(payload.tripId || getDefaultAtlasTripId_()).trim();
-  const placeId = String(payload.placeId || "").trim();
+  const placeId = String(payload.placeId || payload.id || "").trim();
 
   if (!placeId) {
     throw new Error("removeAtlasManualMapPlace: placeId is required");
   }
 
-  const key = getAtlasManualMapPlacesKey_(tripId);
-  const existing = readAtlasMapJson_(key, []);
-  const filtered = existing.filter(function(item) {
-    return item && item.id !== placeId;
-  });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
 
-  writeAtlasMapJson_(key, filtered);
+  try {
+    const key = getAtlasManualMapPlacesKey_(tripId);
+    const existing = readAtlasMapJson_(key, []);
+    const filtered = existing.filter(function(item) {
+      return item && item.id !== placeId;
+    });
 
-  return {
-    success: true,
-    tripId: tripId,
-    removed: existing.length - filtered.length,
-    count: filtered.length
-  };
+    writeAtlasMapJson_(key, filtered);
+
+    return {
+      success: true,
+      ok: true,
+      tripId: tripId,
+      removed: existing.length - filtered.length,
+      count: filtered.length,
+      storage: "drive_json"
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function getAtlasManualMapPlacesKey_(tripId) {
@@ -241,15 +265,35 @@ function normalizeAtlasText_(value) {
 }
 
 function readAtlasMapJson_(key, fallback) {
+  // Script Properties is the source of truth because it works even when
+  // Drive folder configuration is missing or a mobile/private browser cannot
+  // rely on localStorage. Drive JSON is kept as a readable backup.
   const raw = PropertiesService.getScriptProperties().getProperty(key);
 
-  if (!raw) return fallback;
-
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    return fallback;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (error) {
+      console.warn("readAtlasMapJson_: failed to parse Script Properties JSON", error);
+    }
   }
+
+  const driveFile = getAtlasMapStorageFile_(key, false);
+
+  if (driveFile) {
+    try {
+      const parsed = JSON.parse(driveFile.getBlob().getDataAsString("UTF-8") || "[]");
+      if (Array.isArray(parsed)) {
+        PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(parsed));
+        return parsed;
+      }
+    } catch (error) {
+      console.warn("readAtlasMapJson_: failed to parse Drive JSON", error);
+    }
+  }
+
+  return fallback;
 }
 function shouldExcludeAtlasMapPlace_(place) {
   const title = normalizeAtlasText_(place && place.title);
@@ -290,5 +334,73 @@ function pushAtlasMapPlace_(places, place) {
   places.push(place);
 }
 function writeAtlasMapJson_(key, value) {
-  PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(value));
+  const normalized = Array.isArray(value) ? value : [];
+
+  // Save first to Script Properties so cross-device sync does not depend on
+  // Drive folder availability. This is the critical mobile/private-tab fix.
+  PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(normalized));
+
+  // Best-effort Drive JSON backup for inspection/export. Failure here should
+  // never make the marker save look successful locally but disappear remotely.
+  try {
+    const data = JSON.stringify(normalized, null, 2);
+    const file = getAtlasMapStorageFile_(key, true);
+    if (file) file.setContent(data);
+  } catch (error) {
+    console.warn("writeAtlasMapJson_: Drive JSON backup skipped", error);
+  }
+}
+
+function getAtlasMapStorageFile_(key, createIfMissing) {
+  const fileName = key + ".json";
+  const folder = getAtlasMapStorageFolder_();
+  if (!folder) return null;
+
+  const files = folder.getFilesByName(fileName);
+
+  if (files.hasNext()) return files.next();
+  if (!createIfMissing) return null;
+
+  const blob = Utilities.newBlob("[]", "application/json", fileName);
+  return folder.createFile(blob);
+}
+
+function getAtlasMapStorageFolder_() {
+  try {
+    const config = typeof ATLAS_CONFIG !== "undefined" ? ATLAS_CONFIG : {};
+    const trip = config && config.trips
+      ? config.trips[getDefaultAtlasTripId_()]
+      : null;
+
+    const parentFolderId = (trip && trip.folderId) || config.atlasRootFolderId;
+    if (!parentFolderId) return null;
+
+    const parent = DriveApp.getFolderById(parentFolderId);
+    const folderName = "Atlas Map Markers";
+    const folders = parent.getFoldersByName(folderName);
+
+    if (folders.hasNext()) return folders.next();
+    return parent.createFolder(folderName);
+  } catch (error) {
+    console.warn("getAtlasMapStorageFolder_: Drive folder unavailable", error);
+    return null;
+  }
+}
+
+function getAtlasMapMarkerStorageHealth() {
+  const tripId = getDefaultAtlasTripId_();
+  const key = getAtlasManualMapPlacesKey_(tripId);
+  const propsRaw = PropertiesService.getScriptProperties().getProperty(key);
+  const propsCount = propsRaw ? (JSON.parse(propsRaw || "[]") || []).length : 0;
+  const driveFile = getAtlasMapStorageFile_(key, false);
+
+  return {
+    success: true,
+    ok: true,
+    tripId: tripId,
+    key: key,
+    scriptPropertiesCount: propsCount,
+    driveJsonAvailable: !!driveFile,
+    storage: "script_properties_primary_drive_json_backup"
+  };
 }

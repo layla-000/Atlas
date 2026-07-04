@@ -428,37 +428,41 @@ function inferManualPlaceCategory_(googlePlace) {
     if (!place || isKoreaPlace(place)) return;
 
     const draftPlace = { ...place };
-    const originalPlaces = [...STATE.places];
+    const button = document.querySelector('[data-atlas-add-place="true"]');
 
-    STATE.places.push(draftPlace);
-    writeLocalManualPlaces_(STATE.places);
-    STATE.infoWindow.close();
-    renderMarkers();
-    moveTo(draftPlace.id);
-
-    if (!window.AtlasAPI?.saveManualMapPlace) return;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Saving...";
+    }
 
     try {
+      if (!window.AtlasAPI?.saveManualMapPlace) {
+        throw new Error("Atlas backend API가 연결되지 않았어요.");
+      }
+
       const result = await AtlasAPI.saveManualMapPlace(draftPlace);
 
       if (!result || result.success === false || result.ok === false) {
         throw new Error(result?.error || result?.message || "마커 저장에 실패했어요.");
       }
 
-      if (result.place) {
-        STATE.remotePlaceKeys.add(buildPlaceDedupKey_(result.place));
-        STATE.places = STATE.places.map((item) =>
-          item.id === draftPlace.id ? { ...item, ...result.place } : item
-        );
-        writeLocalManualPlaces_(STATE.places);
-        renderMarkers();
-      }
+      const savedPlace = result.place || draftPlace;
+      STATE.remotePlaceKeys.add(buildPlaceDedupKey_(savedPlace));
+      STATE.places = mergePlaces_(STATE.places, [savedPlace]);
+      writeLocalManualPlaces_(STATE.places);
+
+      STATE.infoWindow.close();
+      renderMarkers();
+      moveTo(savedPlace.id);
     } catch (error) {
       console.warn("Failed to save Atlas map marker", error);
-      // Backend 저장에 실패해도 새로고침 표시가 사라지지 않도록 로컬 저장은 유지해요.
-      writeLocalManualPlaces_(STATE.places);
-      renderMarkers();
-      console.warn("Atlas map marker was kept locally after backend save failure.");
+
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Add to Atlas";
+      }
+
+      alert((error && error.message ? error.message : "마커 저장에 실패했어요.") + "\n\n온라인 저장이 성공해야 다른 기기에서도 보여요.");
     }
   }
 

@@ -1,14 +1,15 @@
 function doPost(e) {
   try {
-    const action = e && e.parameter ? e.parameter.action : "";
     const body = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    const action = (e && e.parameter && e.parameter.action) || body.action || "";
+    const payload = body.payload || body || {};
 
     if (action === "save_manual_map_place") {
-      return createJsonResponse(saveAtlasManualMapPlace(body));
+      return createJsonResponse(saveAtlasManualMapPlace(payload));
     }
 
     if (action === "remove_manual_map_place") {
-      return createJsonResponse(removeAtlasManualMapPlace(body));
+      return createJsonResponse(removeAtlasManualMapPlace(payload));
     }
 if (body.action === "get_full_schedule") {
   const schedule = getFullScheduleFromAtlasMemory_(body.payload || {});
@@ -102,6 +103,10 @@ manual_map_places: function() {
     count: places.length
   };
  
+},
+
+map_marker_health: function() {
+  return getAtlasMapMarkerStorageHealth();
 },
     dashboard_note: function() {
       return getAtlasDashboardNote_(getTripIdFromRequest_(e));
