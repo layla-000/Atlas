@@ -265,7 +265,7 @@ function inferManualPlaceCategory_(googlePlace) {
 
   function openPlaceInfoWindow_(marker, place) {
   const googleMapsUrl = buildGoogleMapsUrl_(place);
-  const googleDirectionsUrl = buildGoogleMapsDirectionsUrl_(place);
+  const directionsUrl = buildGoogleMapsDirectionsUrl_(place);
 
   STATE.infoWindow.setContent(`
     <div class="atlas-map-info">
@@ -278,9 +278,9 @@ function inferManualPlaceCategory_(googlePlace) {
         ${escapeHtml_(place.title || place.name || "Atlas place")}
       </a>
       ${place.address || place.query ? `<p>${escapeHtml_(place.address || place.query)}</p>` : ""}
-      <div class="atlas-map-info-actions">
-        <a class="atlas-map-action-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
-        <a class="atlas-map-action-button atlas-map-directions-button" href="${googleDirectionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
+      <div class="atlas-map-action-row">
+        <a class="atlas-map-link-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+        <a class="atlas-map-link-button atlas-map-link-button-primary" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
       </div>
       <button class="atlas-map-delete-button" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete</button>
     </div>
@@ -349,7 +349,7 @@ function inferManualPlaceCategory_(googlePlace) {
 
  function showPendingPlaceInfoWindow_(place) {
   const googleMapsUrl = buildGoogleMapsUrl_(place);
-  const googleDirectionsUrl = buildGoogleMapsDirectionsUrl_(place);
+  const directionsUrl = buildGoogleMapsDirectionsUrl_(place);
 
   STATE.infoWindow.setContent(`
     <div class="atlas-map-info">
@@ -362,9 +362,9 @@ function inferManualPlaceCategory_(googlePlace) {
         ${escapeHtml_(place.title)}
       </a>
       <p>${escapeHtml_(place.address)}</p>
-      <div class="atlas-map-info-actions">
-        <a class="atlas-map-action-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
-        <a class="atlas-map-action-button atlas-map-directions-button" href="${googleDirectionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
+      <div class="atlas-map-action-row">
+        <a class="atlas-map-link-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+        <a class="atlas-map-link-button atlas-map-link-button-primary" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
       </div>
       <button class="atlas-map-add-button" type="button" data-atlas-add-place="true">Add to Atlas</button>
     </div>
@@ -508,57 +508,44 @@ function inferManualPlaceCategory_(googlePlace) {
     return STATE.isReady;
   }
 function buildGoogleMapsUrl_(place) {
-  const placeId = String(place?.placeId || place?.place_id || "").trim();
-  const title = String(place?.title || place?.name || "").trim();
-  const address = String(place?.address || place?.query || "").trim();
-  const lat = Number(place?.lat);
-  const lng = Number(place?.lng);
-
-  // Google Maps mobile app does not reliably resolve URLs like
-  // /maps/place/?q=place_id:xxxx. Use the official Maps URL format instead:
-  // query + query_place_id. This opens the actual place in both Safari and
-  // the Google Maps app instead of searching the literal place_id string.
-  if (placeId) {
-    const query = title || address || (Number.isFinite(lat) && Number.isFinite(lng) ? `${lat},${lng}` : "");
-    const params = new URLSearchParams({
-      api: "1",
-      query: query || placeId,
-      query_place_id: placeId
-    });
-
-    return `https://www.google.com/maps/search/?${params.toString()}`;
-  }
-
-  const query = address || title || (Number.isFinite(lat) && Number.isFinite(lng) ? `${lat},${lng}` : "");
+  const query = buildGoogleMapsQuery_(place);
   if (!query) return "https://www.google.com/maps";
 
-  const params = new URLSearchParams({
-    api: "1",
-    query
-  });
+  const url = new URL("https://www.google.com/maps/search/");
+  url.searchParams.set("api", "1");
+  url.searchParams.set("query", query);
 
-  return `https://www.google.com/maps/search/?${params.toString()}`;
+  if (place?.placeId) {
+    url.searchParams.set("query_place_id", place.placeId);
+  }
+
+  return url.toString();
 }
+
 function buildGoogleMapsDirectionsUrl_(place) {
-  const placeId = String(place?.placeId || place?.place_id || "").trim();
-  const title = String(place?.title || place?.name || "").trim();
-  const address = String(place?.address || place?.query || "").trim();
-  const lat = Number(place?.lat);
-  const lng = Number(place?.lng);
-  const destination = address || title || (Number.isFinite(lat) && Number.isFinite(lng) ? `${lat},${lng}` : "");
+  const destination = buildGoogleMapsQuery_(place);
+  if (!destination) return "https://www.google.com/maps";
 
-  if (!destination && !placeId) return "https://www.google.com/maps";
+  const url = new URL("https://www.google.com/maps/dir/");
+  url.searchParams.set("api", "1");
+  url.searchParams.set("destination", destination);
 
-  const params = new URLSearchParams({
-    api: "1",
-    destination: destination || placeId
-  });
+  if (place?.placeId) {
+    url.searchParams.set("destination_place_id", place.placeId);
+  }
 
-  if (placeId) params.set("destination_place_id", placeId);
-
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
+  return url.toString();
 }
 
+function buildGoogleMapsQuery_(place) {
+  if (!place) return "";
+
+  if (hasValidLatLng(place)) {
+    return `${Number(place.lat).toFixed(6)},${Number(place.lng).toFixed(6)}`;
+  }
+
+  return place.address || place.query || place.title || place.name || "";
+}
   function escapeHtml_(value) {
     return String(value || "")
       .replaceAll("&", "&amp;")
