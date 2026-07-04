@@ -101,13 +101,31 @@ async function getCurrentWeather(place) {
   const region = place.city || place.title || place.name || "현재 지역";
 
   const fallback = {
-    success: false,
-    ok: false,
+    success: true,
+    ok: true,
     weather: {
       label: `${region} 날씨`,
       value: "확인 대기"
     }
   };
+
+  const data = await request("weather", fallback, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      action: "weather",
+      payload: {
+        lat: Number(place.lat),
+        lng: Number(place.lng),
+        region: region
+      }
+    })
+  });
+
+  return data.weather || fallback.weather;
+}
 
   const data = await request("weather", fallback, {
     method: "POST",
