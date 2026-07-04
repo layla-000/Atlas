@@ -310,23 +310,26 @@ function inferManualPlaceCategory_(googlePlace) {
   function openPlaceInfoWindow_(marker, place) {
   const googleMapsUrl = buildGoogleMapsUrl_(place);
   const directionsUrl = buildGoogleMapsDirectionsUrl_(place);
+  const canDelete = isManualMapPlace_(place);
 
   STATE.infoWindow.setContent(`
     <div class="atlas-map-info">
-      <a
-        class="atlas-map-info-title-link"
-        href="${googleMapsUrl}"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        ${escapeHtml_(place.title || place.name || "Atlas place")}
-      </a>
+      <div class="atlas-map-info-header">
+        <a
+          class="atlas-map-info-title-link"
+          href="${googleMapsUrl}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          ${escapeHtml_(place.title || place.name || "Atlas place")}
+        </a>
+        ${canDelete ? `<button class="atlas-map-delete-chip" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete</button>` : ""}
+      </div>
       ${place.address || place.query ? `<p>${escapeHtml_(place.address || place.query)}</p>` : ""}
       <div class="atlas-map-action-row">
         <a class="atlas-map-link-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
         <a class="atlas-map-link-button atlas-map-link-button-primary" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
       </div>
-      ${String(place.type || "").startsWith("manual") ? `<button class="atlas-map-delete-button" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete from Atlas</button>` : ""}
     </div>
   `);
 
@@ -338,6 +341,21 @@ function inferManualPlaceCategory_(googlePlace) {
     button.addEventListener("click", () => deletePlace_(place.id));
   });
 }
+
+  function isManualMapPlace_(place) {
+    const type = String(place?.type || "").toLowerCase();
+    const id = String(place?.id || "").toLowerCase();
+    const source = String(place?.source || "").toLowerCase();
+
+    return (
+      type.startsWith("manual") ||
+      id.startsWith("manual_") ||
+      id.startsWith("manual_place_") ||
+      source.includes("google maps") ||
+      source.includes("지도 클릭") ||
+      source.includes("검색")
+    );
+  }
 
   function initMapClickToAdd_() {
   if (!STATE.map || !window.google?.maps) return;
@@ -475,7 +493,7 @@ function inferManualPlaceCategory_(googlePlace) {
     STATE.infoWindow.close();
     renderMarkers();
 
-    if (!place || !String(place.type || "").startsWith("manual")) return;
+    if (!place || !isManualMapPlace_(place)) return;
     if (!window.AtlasAPI?.removeManualMapPlace) return;
 
     try {

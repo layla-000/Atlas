@@ -1121,3 +1121,62 @@ button {
     gap: 8px;
   }
 }
+
+/* ===== Atlas Map InfoWindow mobile delete visibility fix v4 ===== */
+.gm-style .gm-style-iw-c {
+  max-width: min(360px, calc(100vw - 28px)) !important;
+}
+
+.gm-style .gm-style-iw-d {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+.atlas-map-info-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.atlas-map-info-header .atlas-map-info-title-link {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.atlas-map-delete-chip {
+  flex: 0 0 auto;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #fff1f2;
+  color: #9f1239;
+  font-family: var(--atlas-font);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+@media (max-width: 520px) {
+  .atlas-map-info {
+    min-width: 220px;
+    max-width: calc(100vw - 72px);
+  }
+
+  .atlas-map-info-header {
+    gap: 8px;
+  }
+
+  .atlas-map-delete-chip {
+    min-height: 28px;
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+}
