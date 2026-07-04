@@ -4,6 +4,8 @@ const Atlas = (() => {
     places: [],
     brief: null,
     travelStatus: null,
+    dashboardNoteSaveTimer: null,
+    dashboardNoteLoadedFromBackend: false,
     initialized: false
   };
 
@@ -12,6 +14,7 @@ const Atlas = (() => {
 
     render();
     bindEvents();
+    await refreshDashboardNote();
     await initializeMap();
     await refreshAtlasBrief();
     await refreshTravelStatus();
@@ -31,6 +34,7 @@ const Atlas = (() => {
     renderBriefPlaceholder();
     void renderStatus({});
     renderActions({});
+    renderNotes();
   }
 
   function renderHeader() {
@@ -178,6 +182,111 @@ const Atlas = (() => {
 
     const travelStatus = await AtlasAPI.getTravelStatus();
     STATE.travelStatus = travelStatus || {};
+  }
+
+  function renderNotes(noteValue) {
+    const savedNote = noteValue == null ? getAtlasDashboardNoteFromLocal() : String(noteValue || "");
+    document.getElementById("atlas-notes").innerHTML = `
+      <div class="atlas-card">
+        <div class="atlas-card-inner">
+          <div class="atlas-card-label">Travel Notes</div>
+          <textarea
+            id="atlas-notes-input"
+            class="atlas-notes-input"
+            placeholder="주소, 예약번호, 탑승 게이트, 급히 적어둘 메모를 여기에 남겨두세요."
+          >${escapeHtml(savedNote)}</textarea>
+          <div id="atlas-notes-meta" class="atlas-notes-meta">자동 저장 준비 중이에요.</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function refreshDashboardNote() {
+    const localNote = getAtlasDashboardNoteFromLocal();
+    setAtlasNotesMeta("브라우저 메모를 먼저 불러왔어요.");
+
+    if (!window.AtlasAPI || !AtlasAPI.getDashboardNote) {
+      setAtlasNotesMeta("이 메모는 이 브라우저에 자동 저장돼요.");
+      return;
+    }
+
+    try {
+      const result = await AtlasAPI.getDashboardNote({ tripId: "trip_turkiye_2026" });
+      const backendNote = result && result.note != null ? String(result.note) : "";
+      STATE.dashboardNoteLoadedFromBackend = true;
+
+      if (backendNote && backendNote !== localNote) {
+        saveAtlasDashboardNoteToLocal(backendNote);
+        const input = document.getElementById("atlas-notes-input");
+        if (input && !input.matches(":focus")) input.value = backendNote;
+      } else if (localNote && !backendNote) {
+        await saveAtlasDashboardNoteToBackend(localNote, { silent: true });
+      }
+
+      setAtlasNotesMeta("이 메모는 브라우저와 Atlas 백엔드에 자동 저장돼요.");
+    } catch (error) {
+      console.warn("Atlas dashboard note load failed:", error);
+      setAtlasNotesMeta("백엔드 연결 실패: 브라우저에 먼저 자동 저장돼요.");
+    }
+  }
+
+  function getAtlasDashboardNoteFromLocal() {
+    try {
+      return window.localStorage.getItem("atlas.dashboard.note") || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function saveAtlasDashboardNote(value) {
+    const note = String(value || "");
+    saveAtlasDashboardNoteToLocal(note);
+    setAtlasNotesMeta("저장 중이에요...");
+
+    window.clearTimeout(STATE.dashboardNoteSaveTimer);
+    STATE.dashboardNoteSaveTimer = window.setTimeout(() => {
+      void saveAtlasDashboardNoteToBackend(note);
+    }, 500);
+  }
+
+  function saveAtlasDashboardNoteToLocal(value) {
+    try {
+      window.localStorage.setItem("atlas.dashboard.note", String(value || ""));
+    } catch (error) {
+      console.warn("Atlas dashboard note local save failed:", error);
+    }
+  }
+
+  async function saveAtlasDashboardNoteToBackend(value, options) {
+    if (!window.AtlasAPI || !AtlasAPI.saveDashboardNote) {
+      setAtlasNotesMeta("이 메모는 이 브라우저에 자동 저장돼요.");
+      return null;
+    }
+
+    try {
+      const result = await AtlasAPI.saveDashboardNote({
+        tripId: "trip_turkiye_2026",
+        note: String(value || "")
+      });
+
+      if (result && result.success !== false && result.ok !== false) {
+        if (!options || !options.silent) {
+          setAtlasNotesMeta("저장됐어요. 브라우저와 Atlas 백엔드에 모두 보관돼요.");
+        }
+        return result;
+      }
+
+      throw new Error((result && (result.error || result.message)) || "Dashboard note save failed.");
+    } catch (error) {
+      console.warn("Atlas dashboard note backend save failed:", error);
+      setAtlasNotesMeta("백엔드 저장 실패: 브라우저에는 저장됐어요.");
+      return null;
+    }
+  }
+
+  function setAtlasNotesMeta(message) {
+    const meta = document.getElementById("atlas-notes-meta");
+    if (meta) meta.textContent = message;
   }
 
   function renderMap() {
@@ -466,6 +575,12 @@ async function refreshWeatherStatusItem() {
       const button = event.target.closest(".atlas-plan-item[data-place]");
       if (!button) return;
       AtlasMaps.moveTo(button.dataset.place);
+    });
+
+    document.addEventListener("input", (event) => {
+      if (event.target && event.target.id === "atlas-notes-input") {
+        saveAtlasDashboardNote(event.target.value);
+      }
     });
   }
 

@@ -223,6 +223,50 @@ async function getFullSchedule(params) {
 
   return data;
 }
+
+async function getDashboardNote(params) {
+  const fallback = {
+    success: true,
+    ok: true,
+    note: "",
+    record: null
+  };
+
+  const query = params && params.tripId
+    ? `&tripId=${encodeURIComponent(params.tripId)}`
+    : "";
+
+  const endpoint = getBackendEndpoint();
+  if (!endpoint) return fallback;
+
+  try {
+    const response = await fetch(`${endpoint}?action=dashboard_note${query}`);
+    const data = await response.json();
+    if (!data || data.success === false) return fallback;
+    return data;
+  } catch (error) {
+    console.warn("AtlasAPI dashboard_note request failed:", error);
+    return fallback;
+  }
+}
+
+async function saveDashboardNote(params) {
+  const fallback = {
+    success: false,
+    ok: false
+  };
+
+  return request("save_dashboard_note", fallback, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      action: "save_dashboard_note",
+      payload: params || {}
+    })
+  });
+}
   return {
     getBrief,
     getMemory,
@@ -233,6 +277,8 @@ async function getFullSchedule(params) {
     removeManualMapPlace,
     updateScheduleNote,
     updateScheduleTime,
-    getFullSchedule
+    getFullSchedule,
+    getDashboardNote,
+    saveDashboardNote
   };
 })();

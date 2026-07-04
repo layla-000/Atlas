@@ -29,6 +29,10 @@ if (body.action === "get_full_schedule") {
       return createJsonResponse(updateAtlasScheduleTime_(body.payload || {}));
     }
 
+    if (body.action === "save_dashboard_note") {
+      return createJsonResponse(saveAtlasDashboardNote_(body.payload || {}));
+    }
+
     if (body.action === "create_schedule") {
       return createJsonResponse(handleAtlasScheduleCreate(body.payload));
     }
@@ -99,6 +103,9 @@ manual_map_places: function() {
   };
  
 },
+    dashboard_note: function() {
+      return getAtlasDashboardNote_(getTripIdFromRequest_(e));
+    },
     travel_memory: function() {
       const tripId = e && e.parameter && e.parameter.tripId
         ? e.parameter.tripId
@@ -818,6 +825,62 @@ function deleteAtlasTimelineRecordsByIds() {
 
   Logger.log(JSON.stringify(result, null, 2));
   return result;
+}
+
+
+function getAtlasDashboardNote_(tripId) {
+  const targetTripId = tripId || "trip_turkiye_2026";
+  const props = PropertiesService.getScriptProperties();
+  const key = "ATLAS_DASHBOARD_NOTE__" + targetTripId;
+  const raw = props.getProperty(key);
+
+  if (!raw) {
+    return {
+      success: true,
+      ok: true,
+      tripId: targetTripId,
+      note: "",
+      record: null
+    };
+  }
+
+  const record = JSON.parse(raw);
+
+  return {
+    success: true,
+    ok: true,
+    tripId: targetTripId,
+    note: record.note || "",
+    record: record
+  };
+}
+
+function saveAtlasDashboardNote_(payload) {
+  payload = payload || {};
+
+  const targetTripId = payload.tripId || "trip_turkiye_2026";
+  const note = payload.note == null ? "" : String(payload.note);
+  const now = new Date().toISOString();
+  const props = PropertiesService.getScriptProperties();
+  const key = "ATLAS_DASHBOARD_NOTE__" + targetTripId;
+
+  const record = {
+    id: "dashboard_note_" + targetTripId,
+    type: "dashboard_note",
+    tripId: targetTripId,
+    note: note,
+    updatedAt: now
+  };
+
+  props.setProperty(key, JSON.stringify(record));
+
+  return {
+    success: true,
+    ok: true,
+    tripId: targetTripId,
+    note: note,
+    record: record
+  };
 }
 
 function updateAtlasScheduleNote_(payload) {
