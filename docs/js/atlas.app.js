@@ -176,28 +176,54 @@ await renderStatus({
 
   void refreshWeatherStatusItem();
 }
+async function getCurrentWeatherStatusItem() {
+  const gpsPlace = await getBrowserLocationPlace_();
 
-  async function getCurrentWeatherStatusItem() {
-    const currentPlace = findCurrentWeatherPlace();
-
-    if (!currentPlace || !window.AtlasAPI?.getCurrentWeather) {
-      return {
-        label: "현재 지역 날씨",
-        value: "대기 중",
-        summary: "현재 지역 날씨를 준비하고 있어요.",
-        detail: "-"
-      };
-    }
-
-    const weather = await AtlasAPI.getCurrentWeather(currentPlace);
-
+  if (!gpsPlace || !window.AtlasAPI?.getCurrentWeather) {
     return {
-      label: weather.label || "현재 지역 날씨",
-      value: weather.value || "확인 대기",
-      summary: `${weather.label || "현재 지역"} 기준 날씨예요.`,
-      detail: weather.value || "-"
+      label: "현재 위치 날씨",
+      value: "위치 권한 필요",
+      summary: "브라우저 위치 권한을 허용하면 현재 위치 날씨를 표시해요.",
+      detail: "-"
     };
   }
+
+  const weather = await AtlasAPI.getCurrentWeather(gpsPlace);
+
+  return {
+    label: weather.label || "현재 위치 날씨",
+    value: weather.value || "확인 대기",
+    summary: "브라우저 현재 위치 기준 날씨예요.",
+    detail: weather.value || "-"
+  };
+}
+function getBrowserLocationPlace_() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          title: "현재 위치",
+          city: "현재 위치",
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+      },
+      () => {
+        resolve(null);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 5000,
+        maximumAge: 10 * 60 * 1000
+      }
+    );
+  });
+}
 async function refreshWeatherStatusItem() {
   try {
     const weather = await getCurrentWeatherStatusItem();
