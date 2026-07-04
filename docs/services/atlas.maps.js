@@ -319,19 +319,63 @@ function inferManualPlaceCategory_(googlePlace) {
   });
 }
 
-  function addPlace_(place) {
+  async function addPlace_(place) {
     if (!place || isKoreaPlace(place)) return;
 
-    STATE.places.push(place);
+    const draftPlace = { ...place };
+    const originalPlaces = [...STATE.places];
+
+    STATE.places.push(draftPlace);
     STATE.infoWindow.close();
     renderMarkers();
-    moveTo(place.id);
+    moveTo(draftPlace.id);
+
+    if (!window.AtlasAPI?.saveManualMapPlace) return;
+
+    try {
+      const result = await AtlasAPI.saveManualMapPlace(draftPlace);
+
+      if (!result || result.success === false || result.ok === false) {
+        throw new Error(result?.error || result?.message || "마커 저장에 실패했어요.");
+      }
+
+      if (result.place) {
+        STATE.places = STATE.places.map((item) =>
+          item.id === draftPlace.id ? { ...item, ...result.place } : item
+        );
+        renderMarkers();
+      }
+    } catch (error) {
+      console.warn("Failed to save Atlas map marker", error);
+      STATE.places = originalPlaces;
+      renderMarkers();
+      alert(error?.message || "마커 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+    }
   }
 
-  function deletePlace_(placeId) {
-    STATE.places = STATE.places.filter((place) => place.id !== placeId);
+  async function deletePlace_(placeId) {
+    const place = STATE.places.find((item) => item.id === placeId);
+    const originalPlaces = [...STATE.places];
+
+    STATE.places = STATE.places.filter((item) => item.id !== placeId);
     STATE.infoWindow.close();
     renderMarkers();
+
+    if (!place || !String(place.type || "").startsWith("manual")) return;
+    if (!window.AtlasAPI?.removeManualMapPlace) return;
+
+    try {
+      const result = await AtlasAPI.removeManualMapPlace(placeId);
+
+      if (!result || result.success === false || result.ok === false) {
+        throw new Error(result?.error || result?.message || "마커 삭제에 실패했어요.");
+      }
+    } catch (error) {
+      console.warn("Failed to remove Atlas map marker", error);
+      STATE.places = originalPlaces;
+      renderMarkers();
+      alert(error?.message || "마커 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.");
+    }
   }
 
   function clearMarkers() {
