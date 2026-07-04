@@ -94,14 +94,18 @@ const Atlas = (() => {
       const events = normalizeDashboardScheduleEvents(result.schedule || result.events || []);
       if (!events.length) return [];
 
-      const todayKey = toDateKey(new Date());
-      const dates = [...new Set(events.map((event) => event.date))].sort();
-      const targetDate = dates.includes(todayKey)
-        ? todayKey
-        : dates.slice().sort((a, b) => Math.abs(dateDistance(a, todayKey)) - Math.abs(dateDistance(b, todayKey)))[0];
+      const now = new Date();
+      const upcomingEvents = events
+        .filter((event) => event.startTime && event.startTime.getTime() >= now.getTime())
+        .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+      if (upcomingEvents.length) {
+        return upcomingEvents.slice(0, 3);
+      }
 
       return events
-        .filter((event) => event.date === targetDate)
+        .slice()
+        .sort((a, b) => Math.abs(a.startTime.getTime() - now.getTime()) - Math.abs(b.startTime.getTime() - now.getTime()))
         .slice(0, 3);
     } catch (error) {
       console.warn("Atlas Today's Plan schedule load failed:", error);
@@ -115,21 +119,40 @@ const Atlas = (() => {
         const start = event.startAt || event.start_at || event.start || event.datetime || event.date || "";
         const end = event.endAt || event.end_at || event.end || "";
         const date = String(event.date || start || "").slice(0, 10);
+        const time = event.time || extractTime(start);
+        const startTime = buildDashboardEventDate(date, time, start);
 
         return {
           id: event.id || `${date}-${event.title || event.name || Math.random()}`,
           date,
-          time: event.time || extractTime(start),
+          time,
           endTime: extractTime(end),
+          startTime,
           title: event.title || event.name || "일정",
           location: event.location || event.place || event.address || event.route || event.summary || ""
         };
       })
-      .filter((event) => event.date)
-      .sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date);
-        return (a.time || "99:99").localeCompare(b.time || "99:99");
-      });
+      .filter((event) => event.date && event.startTime && !Number.isNaN(event.startTime.getTime()))
+      .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+  }
+
+  function buildDashboardEventDate(date, time, rawStart) {
+    if (rawStart && String(rawStart).includes("T")) {
+      const parsed = new Date(rawStart);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    if (date && time) {
+      const parsed = new Date(`${date}T${time}:00`);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    if (date) {
+      const parsed = new Date(`${date}T00:00:00`);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    return null;
   }
 
   function extractTime(value) {
