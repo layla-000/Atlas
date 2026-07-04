@@ -76,11 +76,23 @@ function doGet(e) {
       return { success: true, records: getQueuedInboxRecords(20) };
     },
 map_places: function() {
-  return getAtlasMapPlacesForTrip(getTripIdFromRequest_(e));
+  const places = getAtlasMapPlacesForTrip(getTripIdFromRequest_(e));
+  return {
+    success: true,
+    ok: true,
+    places: places,
+    count: places.length
+  };
 },
 
 manual_map_places: function() {
-  return getAtlasManualMapPlaces(getTripIdFromRequest_(e));
+  const places = getAtlasManualMapPlaces(getTripIdFromRequest_(e));
+  return {
+    success: true,
+    ok: true,
+    places: places,
+    count: places.length
+  };
  
 },
     travel_memory: function() {

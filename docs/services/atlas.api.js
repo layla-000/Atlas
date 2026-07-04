@@ -129,6 +129,13 @@ async function getCurrentWeather(place) {
   async function getMapPlaces() {
     const fallback = { success: true, places: [] };
     const data = await request("map_places", fallback);
+
+    // Older Apps Script responses returned the places array directly.
+    // Newer responses return { success: true, places: [...] }. Support both
+    // so saved manual markers survive refresh even if the backend deployment
+    // is one version behind.
+    if (Array.isArray(data)) return data;
+
     return data.places || data.items || [];
   }
 
