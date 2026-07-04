@@ -57,30 +57,44 @@ async function fetchScheduleFromAtlasMemory() {
 
   function normalizeEvents(events) {
     return (Array.isArray(events) ? events : [])
-      .map((event) => {
-        const start = event.startAt || event.start_at || event.start || event.datetime || event.date;
-        const end = event.endAt || event.end_at || event.end || "";
-const date = String(event.date || start || "").slice(0, 10);
-
-        return {
-          id: event.id || `${date}-${event.title || Math.random()}`,
-          date,
-          time: event.time || extractTime(start),
-          endTime: extractTime(end),
-          title: event.title || event.name || "일정",
-          location: event.location || event.place || event.address || "",
-          type: event.scheduleType || event.schedule_type || event.type || "etc",
-          confirmationNumber: getConfirmationNumber(event),
-          notes: getEventNotes(event),
-          route: event.route || event.summary || "",
-          source: event.source || ""
-        };
-      })
+      .flatMap((event) => expandEventAcrossDates(event))
       .filter((event) => event.date >= START_DATE && event.date <= END_DATE)
       .sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         return (a.time || "99:99").localeCompare(b.time || "99:99");
       });
+  }
+
+  function expandEventAcrossDates(event) {
+    const start = event.startAt || event.start_at || event.start || event.datetime || event.date;
+    const end = event.endAt || event.end_at || event.end || "";
+    const startDate = normalizeDateKey(event.date || start);
+    const endDate = normalizeDateKey(end) || startDate;
+
+    if (!startDate) return [];
+
+    const dates = listDateKeysBetween(startDate, endDate);
+    const originalId = event.id || `${startDate}-${event.title || Math.random()}`;
+
+    return dates.map((date, index) => ({
+      id: originalId,
+      displayId: `${originalId}__${date}`,
+      date,
+      time: index === 0 ? (event.time || extractTime(start)) : "",
+      endTime: date === endDate ? extractTime(end) : "",
+      title: event.title || event.name || "일정",
+      location: event.location || event.place || event.address || "",
+      type: event.scheduleType || event.schedule_type || event.type || "etc",
+      confirmationNumber: getConfirmationNumber(event),
+      notes: getEventNotes(event),
+      route: event.route || event.summary || "",
+      source: event.source || "",
+      startAt: start || "",
+      endAt: end || "",
+      isMultiDay: dates.length > 1,
+      multiDayIndex: index,
+      multiDayCount: dates.length
+    }));
   }
 
   function getConfirmationNumber(event) {
@@ -184,7 +198,7 @@ const date = String(event.date || start || "").slice(0, 10);
           <div class="event-title">${escapeHtml(event.title)}</div>
           <div class="event-place">
             <span>${escapeHtml(formatEventPlaceLine(event))}</span>
-            ${event.source === "manual_schedule" ? renderNoteEditButton(event) : ""}
+            ${event.source === "manual_schedule" ? renderManualEditButtons(event) : ""}
           </div>
           <span class="event-tag">${escapeHtml(labelForType(event.type))}</span>
         </div>
@@ -192,27 +206,44 @@ const date = String(event.date || start || "").slice(0, 10);
     `;
   }
 
-  function renderNoteEditButton(event) {
+  function renderManualEditButtons(event) {
     return `
       <button
         type="button"
         class="event-note-edit"
         style="margin-left: 8px; border: 0; border-radius: 999px; padding: 4px 9px; background: rgba(79, 96, 255, 0.10); color: #4f60ff; font: inherit; font-size: 0.8em; cursor: pointer;"
+        onclick="AtlasSchedule.editTime('${escapeJs(event.id)}')"
+        aria-label="시간 수정"
+      >시간</button>
+      <button
+        type="button"
+        class="event-note-edit"
+        style="margin-left: 6px; border: 0; border-radius: 999px; padding: 4px 9px; background: rgba(79, 96, 255, 0.10); color: #4f60ff; font: inherit; font-size: 0.8em; cursor: pointer;"
         onclick="AtlasSchedule.editNote('${escapeJs(event.id)}')"
         aria-label="노트 수정"
-      >수정</button>
+      >노트</button>
     `;
   }
 
   function formatEventPlaceLine(event) {
     const items = [];
+    const type = String(event.type || "").toLowerCase();
 
-    if (event.confirmationNumber) {
-      items.push(`예약번호 ${event.confirmationNumber}`);
+    if (type === "hotel") {
+      if (event.location) items.push(event.location);
+      if (event.notes) items.push(event.notes);
+    } else {
+      if (event.confirmationNumber) {
+        items.push(`예약번호 ${event.confirmationNumber}`);
+      }
+
+      if (event.notes) {
+        items.push(event.notes);
+      }
     }
 
-    if (event.notes) {
-      items.push(event.notes);
+    if (event.isMultiDay) {
+      items.push(`${event.multiDayIndex + 1}/${event.multiDayCount}일차`);
     }
 
     if (items.length) {
@@ -274,6 +305,43 @@ const date = String(event.date || start || "").slice(0, 10);
     }
   }
 
+  async function editTime(eventId) {
+    const event = findEventById(eventId);
+    if (!event) {
+      alert("수정할 일정을 찾지 못했어요.");
+      return;
+    }
+
+    if (!window.AtlasAPI || !AtlasAPI.updateScheduleTime) {
+      alert("시간 수정 API가 아직 연결되어 있지 않아요.");
+      return;
+    }
+
+    const nextStartAt = window.prompt("시작 시간을 수정해요. 예: 2026-09-24T09:00", event.startAt || `${event.date}T${event.time || "09:00"}`);
+    if (nextStartAt === null) return;
+
+    const nextEndAt = window.prompt("종료 시간을 수정해요. 비워두어도 괜찮아요. 예: 2026-09-24T11:00", event.endAt || "");
+    if (nextEndAt === null) return;
+
+    try {
+      const result = await AtlasAPI.updateScheduleTime({
+        id: event.id,
+        source: event.source,
+        startAt: nextStartAt.trim(),
+        endAt: nextEndAt.trim()
+      });
+
+      if (!result || result.success === false || result.ok === false) {
+        throw new Error((result && (result.error || result.message)) || "시간 수정에 실패했어요.");
+      }
+
+      await reloadSchedule();
+    } catch (error) {
+      console.error("Atlas time update failed:", error);
+      alert(error.message || "시간 수정에 실패했어요.");
+    }
+  }
+
   function findEventById(eventId) {
     for (let i = 0; i < STATE.days.length; i += 1) {
       const found = STATE.days[i].events.find((event) => event.id === eventId);
@@ -320,6 +388,39 @@ function buildEmptyDays() {
     };
   });
 }
+
+  function normalizeDateKey(value) {
+    if (!value) return "";
+    const text = String(value).trim();
+    const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return "";
+
+    return toDateKey(parsed);
+  }
+
+  function listDateKeysBetween(startDate, endDate) {
+    const start = parseDateKey(startDate);
+    const end = parseDateKey(endDate);
+    if (!start || !end || end < start) return [startDate];
+
+    const dates = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      dates.push(toDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return dates;
+  }
+
+  function parseDateKey(dateKey) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey || ""))) return null;
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
 
   function extractTime(value) {
     if (!value) return "";
@@ -405,7 +506,8 @@ function toDateKey(date) {
   return {
     initialize,
     goToDay,
-    editNote
+    editNote,
+    editTime
   };
 })();
 

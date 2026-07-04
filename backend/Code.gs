@@ -25,6 +25,10 @@ if (body.action === "get_full_schedule") {
       return createJsonResponse(updateAtlasScheduleNote_(body.payload || {}));
     }
 
+    if (body.action === "update_schedule_time") {
+      return createJsonResponse(updateAtlasScheduleTime_(body.payload || {}));
+    }
+
     if (body.action === "create_schedule") {
       return createJsonResponse(handleAtlasScheduleCreate(body.payload));
     }
@@ -411,8 +415,9 @@ function getFullScheduleFromManualTimeline_(tripId, startDate, endDate) {
     .filter(function(event) {
       if (!event || event.tripId !== tripId) return false;
 
-const date = normalizeAtlasDate_(event.startAt || event.date);
-      return date && date >= startDate && date <= endDate;
+      const eventStart = normalizeAtlasDate_(event.startAt || event.date);
+      const eventEnd = normalizeAtlasDate_(event.endAt || eventStart);
+      return doesAtlasDateRangeOverlap_(eventStart, eventEnd, startDate, endDate);
     })
     .map(function(event) {
       const details = event.details || {};
@@ -487,8 +492,16 @@ function getFullScheduleFromTravelMemory_(tripId, startDate, endDate) {
       };
     })
     .filter(function(item) {
-      return item.date && item.date >= startDate && item.date <= endDate;
+      const itemStart = normalizeAtlasDate_(item.startAt || item.date);
+      const itemEnd = normalizeAtlasDate_(item.endAt || itemStart);
+      return doesAtlasDateRangeOverlap_(itemStart, itemEnd, startDate, endDate);
     });
+}
+
+function doesAtlasDateRangeOverlap_(eventStart, eventEnd, rangeStart, rangeEnd) {
+  if (!eventStart) return false;
+  const safeEventEnd = eventEnd || eventStart;
+  return eventStart <= rangeEnd && safeEventEnd >= rangeStart;
 }
 
 function normalizeAtlasDate_(value) {
@@ -886,6 +899,104 @@ function updateAtlasTimelineRecordNoteBySourceId_(scheduleId, notes, now) {
     const event = JSON.parse(raw);
     if (event && event.sourceId === scheduleId) {
       event.notes = notes;
+      event.updatedAt = now;
+      props.setProperty(key, JSON.stringify(event));
+      return event;
+    }
+  }
+
+  return null;
+}
+
+function updateAtlasScheduleTime_(payload) {
+  payload = payload || {};
+
+  const id = payload.id || payload.timelineEventId || payload.scheduleId || "";
+  if (!id) {
+    throw new Error("Missing schedule id.");
+  }
+
+  const startAt = payload.startAt == null ? "" : String(payload.startAt).trim();
+  const endAt = payload.endAt == null ? "" : String(payload.endAt).trim();
+
+  if (!startAt) {
+    throw new Error("Missing startAt.");
+  }
+
+  const props = PropertiesService.getScriptProperties();
+  const now = new Date().toISOString();
+
+  let updatedTimeline = null;
+  let updatedSchedule = null;
+
+  const timelineKey = "ATLAS_TIMELINE_RECORD__" + id;
+  const timelineRaw = props.getProperty(timelineKey);
+
+  if (timelineRaw) {
+    updatedTimeline = JSON.parse(timelineRaw);
+    updatedTimeline.startAt = startAt;
+    updatedTimeline.endAt = endAt;
+    updatedTimeline.updatedAt = now;
+    props.setProperty(timelineKey, JSON.stringify(updatedTimeline));
+
+    if (updatedTimeline.sourceId) {
+      updatedSchedule = updateAtlasScheduleRecordTimeById_(updatedTimeline.sourceId, startAt, endAt, now);
+    }
+  }
+
+  if (!updatedTimeline) {
+    updatedSchedule = updateAtlasScheduleRecordTimeById_(id, startAt, endAt, now);
+
+    if (updatedSchedule) {
+      updatedTimeline = updateAtlasTimelineRecordTimeBySourceId_(id, startAt, endAt, now);
+    }
+  }
+
+  if (!updatedTimeline && !updatedSchedule) {
+    throw new Error("수정할 일정을 찾지 못했어요.");
+  }
+
+  return {
+    success: true,
+    ok: true,
+    id: id,
+    startAt: startAt,
+    endAt: endAt,
+    timelineEvent: updatedTimeline,
+    scheduleRecord: updatedSchedule
+  };
+}
+
+function updateAtlasScheduleRecordTimeById_(scheduleId, startAt, endAt, now) {
+  const props = PropertiesService.getScriptProperties();
+  const key = "ATLAS_SCHEDULE_RECORD__" + scheduleId;
+  const raw = props.getProperty(key);
+
+  if (!raw) return null;
+
+  const record = JSON.parse(raw);
+  record.startAt = startAt;
+  record.endAt = endAt;
+  record.updatedAt = now;
+  props.setProperty(key, JSON.stringify(record));
+
+  return record;
+}
+
+function updateAtlasTimelineRecordTimeBySourceId_(scheduleId, startAt, endAt, now) {
+  const props = PropertiesService.getScriptProperties();
+  const index = JSON.parse(props.getProperty("ATLAS_TIMELINE_INDEX") || "[]");
+
+  for (var i = 0; i < index.length; i++) {
+    const timelineId = index[i];
+    const key = "ATLAS_TIMELINE_RECORD__" + timelineId;
+    const raw = props.getProperty(key);
+    if (!raw) continue;
+
+    const event = JSON.parse(raw);
+    if (event && event.sourceId === scheduleId) {
+      event.startAt = startAt;
+      event.endAt = endAt;
       event.updatedAt = now;
       props.setProperty(key, JSON.stringify(event));
       return event;

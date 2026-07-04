@@ -180,6 +180,24 @@ async function updateScheduleNote(params) {
     })
   });
 }
+async function updateScheduleTime(params) {
+  const fallback = {
+    success: false,
+    ok: false
+  };
+
+  return request("update_schedule_time", fallback, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      action: "update_schedule_time",
+      payload: params || {}
+    })
+  });
+}
+
 async function getFullSchedule(params) {
   const fallback = {
     success: false,
@@ -214,6 +232,7 @@ async function getFullSchedule(params) {
     saveManualMapPlace,
     removeManualMapPlace,
     updateScheduleNote,
+    updateScheduleTime,
     getFullSchedule
   };
 })();
