@@ -26,8 +26,13 @@
     <nav id="schedule-dates" class="date-strip"></nav>
     <p class="swipe-hint">ⓘ 좌우로 스와이프해서 날짜를 변경할 수 있어요</p>
   </main>
-<script src="./config/config.public.js"></script>
-  <script src="./services/atlas.api.js"></script>
-  <script src="./js/atlas.schedule.js"></script>
+<script>
+  window.AtlasConfig = window.AtlasConfig || {};
+  window.AtlasConfig.backend = {
+    uploadEndpoint: "https://script.google.com/macros/s/AKfycbyC-kDrY0tgvLgZSvhryUHQy1ZPr11ySnH40ilJGsSJCn1fZb5YxPiFIW0ym3ElisUZGQ/exec"
+  };
+</script>
+<script src="./services/atlas.api.js"></script>
+<script src="./js/atlas.schedule.js"></script>
 </body>
 </html>
