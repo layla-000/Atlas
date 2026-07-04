@@ -66,7 +66,8 @@ const date = String(event.date || start || "").slice(0, 10);
           title: event.title || event.name || "일정",
           location: event.location || event.place || event.address || "",
           type: event.scheduleType || event.schedule_type || event.type || "etc",
-          notes: event.notes || event.memo || "",
+          confirmationNumber: event.confirmationNumber || event.confirmation_number || (event.details || {}).confirmationNumber || "",
+          notes: event.notes || event.note || event.memo || "",
           route: event.route || event.summary || ""
         };
       })
@@ -144,11 +145,29 @@ const date = String(event.date || start || "").slice(0, 10);
         <div>
           <div class="event-icon">${iconForType(event.type)}</div>
           <div class="event-title">${escapeHtml(event.title)}</div>
-          <div class="event-place">${escapeHtml(event.location || event.route || "-")}</div>
+          <div class="event-place">${escapeHtml(formatEventPlaceLine(event))}</div>
           <span class="event-tag">${escapeHtml(labelForType(event.type))}</span>
         </div>
       </div>
     `;
+  }
+
+  function formatEventPlaceLine(event) {
+    const items = [];
+
+    if (event.confirmationNumber) {
+      items.push(`예약번호 ${event.confirmationNumber}`);
+    }
+
+    if (event.notes) {
+      items.push(event.notes);
+    }
+
+    if (items.length) {
+      return items.join(" · ");
+    }
+
+    return event.location || event.route || "-";
   }
 
   function renderError(error) {
