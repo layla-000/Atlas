@@ -17,6 +17,7 @@ const STATE = {
   infoWindow: null,
   searchBox: null,
   placesService: null,
+  remotePlaceKeys: new Set(),
   isReady: false
 };
 
@@ -105,6 +106,46 @@ const STATE = {
     return merged;
   }
 
+  async function syncLocalManualPlacesToBackend_() {
+    if (!window.AtlasAPI?.saveManualMapPlace) return;
+
+    const localPlaces = readLocalManualPlaces_()
+      .filter((place) => String(place?.type || "").startsWith("manual"))
+      .filter((place) => !isKoreaPlace(place));
+
+    if (localPlaces.length === 0) return;
+
+    const remoteKeys = STATE.remotePlaceKeys || new Set();
+    const unsynced = localPlaces.filter((place) => !remoteKeys.has(buildPlaceDedupKey_(place)));
+
+    if (unsynced.length === 0) return;
+
+    for (const place of unsynced) {
+      try {
+        const result = await AtlasAPI.saveManualMapPlace(place);
+        if (result?.place) {
+          STATE.remotePlaceKeys.add(buildPlaceDedupKey_(result.place));
+          STATE.places = mergePlaces_(STATE.places, [result.place]);
+        }
+      } catch (error) {
+        console.warn("Failed to sync local Atlas marker to backend", error);
+      }
+    }
+
+    writeLocalManualPlaces_(STATE.places);
+    renderMarkers();
+  }
+
+  function buildPlaceDedupKey_(place) {
+    return [
+      String(place?.placeId || place?.place_id || ""),
+      String(place?.title || place?.name || "").trim().toLowerCase(),
+      String(place?.address || place?.query || "").trim().toLowerCase(),
+      Number(place?.lat || 0).toFixed(6),
+      Number(place?.lng || 0).toFixed(6)
+    ].join("::");
+  }
+
   function loadGoogleMaps() {
     return new Promise((resolve, reject) => {
       if (window.google?.maps) return resolve(window.google.maps);
@@ -135,7 +176,9 @@ script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=pl
     const mapElement = document.getElementById(options.elementId);
     if (!mapElement) throw new Error(`Map element not found: ${options.elementId}`);
 
-    STATE.places = mergePlaces_(filterKoreaPlaces(options.places || []), readLocalManualPlaces_());
+    const remotePlaces = filterKoreaPlaces(options.places || []);
+    STATE.remotePlaceKeys = new Set(remotePlaces.map((place) => buildPlaceDedupKey_(place)));
+    STATE.places = mergePlaces_(remotePlaces, readLocalManualPlaces_());
     STATE.infoWindow = new maps.InfoWindow();
   
 
@@ -169,6 +212,7 @@ initPlaceSearchControl_();
 initMapClickToAdd_();
 
     STATE.isReady = true;
+    void syncLocalManualPlacesToBackend_();
     return STATE.map;
   }
 
@@ -402,6 +446,7 @@ function inferManualPlaceCategory_(googlePlace) {
       }
 
       if (result.place) {
+        STATE.remotePlaceKeys.add(buildPlaceDedupKey_(result.place));
         STATE.places = STATE.places.map((item) =>
           item.id === draftPlace.id ? { ...item, ...result.place } : item
         );
@@ -475,9 +520,12 @@ function inferManualPlaceCategory_(googlePlace) {
   }
 
   function setPlaces(places) {
-    STATE.places = mergePlaces_(filterKoreaPlaces(places || []), readLocalManualPlaces_());
+    const remotePlaces = filterKoreaPlaces(places || []);
+    STATE.remotePlaceKeys = new Set(remotePlaces.map((place) => buildPlaceDedupKey_(place)));
+    STATE.places = mergePlaces_(remotePlaces, readLocalManualPlaces_());
     renderMarkers();
     fitToPlaces();
+    void syncLocalManualPlacesToBackend_();
   }
 
   function showRoute(originId, destinationId) {
