@@ -126,7 +126,6 @@ async function getCurrentWeather(place) {
 
   return data.weather || fallback.weather;
 }
-
   async function getMapPlaces() {
     const fallback = { success: true, places: [] };
     const data = await request("map_places", fallback);
