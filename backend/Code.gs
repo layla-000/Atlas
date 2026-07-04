@@ -394,12 +394,12 @@ function getFullScheduleFromManualTimeline_(tripId, startDate, endDate) {
     .filter(function(event) {
       if (!event || event.tripId !== tripId) return false;
 
-      const date = normalizeAtlasDate_(event.startAt);
+const date = normalizeAtlasDate_(event.startAt || event.date);
       return date && date >= startDate && date <= endDate;
     })
     .map(function(event) {
       const details = event.details || {};
-      const date = normalizeAtlasDate_(event.startAt);
+      const date = normalizeAtlasDate_(event.startAt || event.date);
 
       return {
         id: event.id,
@@ -471,7 +471,7 @@ function normalizeAtlasDate_(value) {
   const text = String(value).trim();
 
   if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
-    return text;
+   return text.slice(0, 10);
   }
 
   const parsed = new Date(text);
