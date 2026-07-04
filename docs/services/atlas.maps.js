@@ -5,7 +5,8 @@ const AtlasMaps = (() => {
     focusedZoom: 15,
     routeStrokeWeight: 5,
     routeStrokeOpacity: 0.82,
-    routeColor: "#36c7b7"
+    routeColor: "#36c7b7",
+    localStorageKey: "ATLAS_MANUAL_MAP_PLACES__trip_turkiye_2026"
   };
 
 const STATE = {
@@ -54,6 +55,56 @@ const STATE = {
     return (places || []).filter((place) => !isKoreaPlace(place));
   }
 
+
+  function readLocalManualPlaces_() {
+    try {
+      const raw = window.localStorage?.getItem(CONFIG.localStorageKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter(hasValidLatLng) : [];
+    } catch (error) {
+      console.warn("Failed to read local Atlas map markers", error);
+      return [];
+    }
+  }
+
+  function writeLocalManualPlaces_(places) {
+    try {
+      const manualPlaces = (places || [])
+        .filter((place) => String(place?.type || "").startsWith("manual"))
+        .filter(hasValidLatLng)
+        .filter((place) => !isKoreaPlace(place));
+
+      window.localStorage?.setItem(CONFIG.localStorageKey, JSON.stringify(manualPlaces));
+    } catch (error) {
+      console.warn("Failed to save local Atlas map markers", error);
+    }
+  }
+
+  function mergePlaces_(primaryPlaces, fallbackPlaces) {
+    const merged = [];
+    const seen = new Set();
+
+    [...(primaryPlaces || []), ...(fallbackPlaces || [])].forEach((place) => {
+      if (!place || !hasValidLatLng(place) || isKoreaPlace(place)) return;
+
+      const key = [
+        place.placeId || "",
+        String(place.id || ""),
+        String(place.title || place.name || "").trim().toLowerCase(),
+        String(place.address || place.query || "").trim().toLowerCase(),
+        Number(place.lat).toFixed(6),
+        Number(place.lng).toFixed(6)
+      ].join("::");
+
+      if (seen.has(key)) return;
+      seen.add(key);
+      merged.push(place);
+    });
+
+    return merged;
+  }
+
   function loadGoogleMaps() {
     return new Promise((resolve, reject) => {
       if (window.google?.maps) return resolve(window.google.maps);
@@ -84,7 +135,7 @@ script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=pl
     const mapElement = document.getElementById(options.elementId);
     if (!mapElement) throw new Error(`Map element not found: ${options.elementId}`);
 
-    STATE.places = filterKoreaPlaces(options.places || []);
+    STATE.places = mergePlaces_(filterKoreaPlaces(options.places || []), readLocalManualPlaces_());
     STATE.infoWindow = new maps.InfoWindow();
   
 
@@ -326,6 +377,7 @@ function inferManualPlaceCategory_(googlePlace) {
     const originalPlaces = [...STATE.places];
 
     STATE.places.push(draftPlace);
+    writeLocalManualPlaces_(STATE.places);
     STATE.infoWindow.close();
     renderMarkers();
     moveTo(draftPlace.id);
@@ -343,13 +395,15 @@ function inferManualPlaceCategory_(googlePlace) {
         STATE.places = STATE.places.map((item) =>
           item.id === draftPlace.id ? { ...item, ...result.place } : item
         );
+        writeLocalManualPlaces_(STATE.places);
         renderMarkers();
       }
     } catch (error) {
       console.warn("Failed to save Atlas map marker", error);
-      STATE.places = originalPlaces;
+      // Backend 저장에 실패해도 새로고침 표시가 사라지지 않도록 로컬 저장은 유지해요.
+      writeLocalManualPlaces_(STATE.places);
       renderMarkers();
-      alert(error?.message || "마커 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      console.warn("Atlas map marker was kept locally after backend save failure.");
     }
   }
 
@@ -358,6 +412,7 @@ function inferManualPlaceCategory_(googlePlace) {
     const originalPlaces = [...STATE.places];
 
     STATE.places = STATE.places.filter((item) => item.id !== placeId);
+    writeLocalManualPlaces_(STATE.places);
     STATE.infoWindow.close();
     renderMarkers();
 
@@ -373,6 +428,7 @@ function inferManualPlaceCategory_(googlePlace) {
     } catch (error) {
       console.warn("Failed to remove Atlas map marker", error);
       STATE.places = originalPlaces;
+      writeLocalManualPlaces_(STATE.places);
       renderMarkers();
       alert(error?.message || "마커 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.");
     }
@@ -409,7 +465,7 @@ function inferManualPlaceCategory_(googlePlace) {
   }
 
   function setPlaces(places) {
-    STATE.places = filterKoreaPlaces(places || []);
+    STATE.places = mergePlaces_(filterKoreaPlaces(places || []), readLocalManualPlaces_());
     renderMarkers();
     fitToPlaces();
   }

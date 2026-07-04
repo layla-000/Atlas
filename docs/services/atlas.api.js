@@ -147,7 +147,7 @@ async function getCurrentWeather(place) {
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify(place || {})
+      body: JSON.stringify({ action: "save_manual_map_place", payload: place || {}, ...(place || {}) })
     });
   }
 
@@ -159,7 +159,7 @@ async function getCurrentWeather(place) {
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify({ placeId })
+      body: JSON.stringify({ action: "remove_manual_map_place", payload: { placeId }, placeId })
     });
   }
 
