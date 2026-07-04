@@ -40,10 +40,20 @@ function validateAtlasSchedulePayload(payload) {
   if (allowed.indexOf(payload.scheduleType) === -1) {
     throw new Error("Unsupported scheduleType: " + payload.scheduleType);
   }
+
+  if (requiresAtlasConfirmationNumber_(payload.scheduleType)) {
+    const details = payload.details || {};
+    const confirmationNumber = payload.confirmationNumber || details.confirmationNumber || "";
+    if (!confirmationNumber) {
+      throw new Error("Missing confirmationNumber.");
+    }
+  }
 }
 
 function buildAtlasScheduleRecord(payload, trip) {
   const now = new Date().toISOString();
+  const details = payload.details || {};
+  details.confirmationNumber = payload.confirmationNumber || details.confirmationNumber || details.reservationNumber || "";
 
   return {
     id: createAtlasScheduleId(),
@@ -60,9 +70,10 @@ function buildAtlasScheduleRecord(payload, trip) {
     startAt: payload.startAt,
     endAt: payload.endAt || "",
     location: payload.location || "",
+    confirmationNumber: details.confirmationNumber,
     notes: payload.notes || "",
 
-    details: payload.details || {}
+    details: details
   };
 }
 
@@ -104,6 +115,7 @@ function buildAtlasTimelineEventFromSchedule(schedule) {
     startAt: schedule.startAt,
     endAt: schedule.endAt,
     location: schedule.location,
+    confirmationNumber: schedule.confirmationNumber || (schedule.details || {}).confirmationNumber || "",
 
     departurePlace: schedule.details.departurePlace || "",
     arrivalPlace: schedule.details.arrivalPlace || "",
@@ -162,6 +174,10 @@ function saveAtlasTimelineEvent(event) {
 
 function buildAtlasScheduleCreateMessage(schedule) {
   return "Atlas Schedule에 " + capitalizeAtlas_(schedule.scheduleType) + " 일정이 저장되었어요.";
+}
+
+function requiresAtlasConfirmationNumber_(scheduleType) {
+  return ["flight", "train", "bus", "activity"].indexOf(scheduleType) !== -1;
 }
 
 function createAtlasScheduleId() {

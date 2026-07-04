@@ -482,17 +482,30 @@ function renderAtlasScheduleFields(type) {
     </label>
   `;
 
-  const commonBottom = `
+  const confirmationNumberField = `
     <label>
-      Location
-      <input name="location" placeholder="예: ICN, IST, Göreme" />
-    </label>
-
-    <label>
-      Notes
-      <textarea name="notes" rows="3" placeholder="예약번호, 준비물, 메모 등을 적어 주세요."></textarea>
+      Confirmation Number
+      <input name="confirmationNumber" placeholder="예: PNR, 예약번호, 바우처 번호" required />
     </label>
   `;
+
+  const commonBottom = (options = {}) => {
+    const showLocation = options.showLocation !== false;
+
+    return `
+      ${showLocation ? `
+        <label>
+          Location
+          <input name="location" placeholder="예: ICN, IST, Göreme" />
+        </label>
+      ` : ""}
+
+      <label>
+        Notes
+        <textarea name="notes" rows="3" placeholder="준비물, 메모 등을 적어 주세요."></textarea>
+      </label>
+    `;
+  };
 
   if (type === "flight") {
     return `
@@ -509,7 +522,8 @@ function renderAtlasScheduleFields(type) {
         <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
         <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
       </div>
-      ${commonBottom}
+      ${confirmationNumberField}
+      ${commonBottom({ showLocation: false })}
     `;
   }
 
@@ -522,7 +536,7 @@ function renderAtlasScheduleFields(type) {
         <label>Check-out<input name="endAt" type="datetime-local" required /></label>
       </div>
       <label>Reservation No.<input name="reservationNumber" placeholder="optional" /></label>
-      ${commonBottom}
+      ${commonBottom()}
     `;
   }
 
@@ -541,7 +555,8 @@ function renderAtlasScheduleFields(type) {
         <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
         <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
       </div>
-      ${commonBottom}
+      ${confirmationNumberField}
+      ${commonBottom({ showLocation: false })}
     `;
   }
 
@@ -560,7 +575,8 @@ function renderAtlasScheduleFields(type) {
         <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
         <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
       </div>
-      ${commonBottom}
+      ${confirmationNumberField}
+      ${commonBottom({ showLocation: false })}
     `;
   }
 
@@ -573,7 +589,8 @@ function renderAtlasScheduleFields(type) {
         <label>End Time<input name="endAt" type="datetime-local" /></label>
       </div>
       <label>Meeting Point<input name="meetingPoint" placeholder="optional" /></label>
-      ${commonBottom}
+      ${confirmationNumberField}
+      ${commonBottom({ showLocation: false })}
     `;
   }
 
@@ -583,7 +600,7 @@ function renderAtlasScheduleFields(type) {
       <label>Start Time<input name="startAt" type="datetime-local" required /></label>
       <label>End Time<input name="endAt" type="datetime-local" /></label>
     </div>
-    ${commonBottom}
+    ${commonBottom()}
   `;
 }
 
@@ -599,8 +616,10 @@ function collectAtlasSchedulePayload(form) {
     startAt: raw.startAt,
     endAt: raw.endAt,
     location: raw.location || "",
+    confirmationNumber: raw.confirmationNumber || raw.reservationNumber || "",
     notes: raw.notes || "",
     details: {
+      confirmationNumber: raw.confirmationNumber || raw.reservationNumber || "",
       airline: raw.airline || "",
       operator: raw.operator || "",
       provider: raw.provider || "",
