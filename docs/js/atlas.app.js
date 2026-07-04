@@ -134,47 +134,48 @@ await renderStatus({
       </div>
     `;
   }
-   async function renderStatus(data) {
-    data = data || {};
+ function renderStatus(data) {
+  data = data || {};
 
-    const timeCard = data.time_card || {};
-    const transport = data.next_transport || {};
-    const weather = await getCurrentWeatherStatusItem();
+  const timeCard = data.time_card || {};
+  const transport = data.next_transport || {};
 
-    document.getElementById("atlas-status").innerHTML = `
-      <div class="atlas-card">
-        <div class="atlas-card-inner">
-          <div class="atlas-card-label">Travel Status</div>
+  document.getElementById("atlas-status").innerHTML = `
+    <div class="atlas-card">
+      <div class="atlas-card-inner">
+        <div class="atlas-card-label">Travel Status</div>
 
-          <div class="atlas-status-grid">
-            <div class="atlas-status-item">
-              ${escapeHtml(timeCard.local_label || "현지 시간")}
-              <span class="atlas-status-value">${escapeHtml(timeCard.local_time || "--:--")}</span>
-            </div>
-
-            <div class="atlas-status-item">
-              ${escapeHtml(timeCard.home_label || "한국 시간")}
-              <span class="atlas-status-value">${escapeHtml(timeCard.home_time || "--:--")}</span>
-            </div>
-
-            <div class="atlas-status-item">
-              ${escapeHtml(weather.label)}
-              <span class="atlas-status-value">${escapeHtml(weather.value)}</span>
-            </div>
+        <div class="atlas-status-grid">
+          <div class="atlas-status-item">
+            ${escapeHtml(timeCard.local_label || "현지 시간")}
+            <span class="atlas-status-value">${escapeHtml(timeCard.local_time || "--:--")}</span>
           </div>
 
-          <div class="atlas-next-transport">
-            <strong>${escapeHtml(transport.title || transport.flight_number || transport.vehicle || "예정된 교통편이 아직 없어요.")}</strong>
-            <p>
-              ${escapeHtml(transport.departure_place || "-")}
-              →
-              ${escapeHtml(transport.arrival_place || "-")}
-            </p>
+          <div class="atlas-status-item">
+            ${escapeHtml(timeCard.home_label || "한국 시간")}
+            <span class="atlas-status-value">${escapeHtml(timeCard.home_time || "--:--")}</span>
+          </div>
+
+          <div class="atlas-status-item">
+            <span id="atlas-weather-label">현재 지역 날씨</span>
+            <span id="atlas-weather-value" class="atlas-status-value">확인 대기</span>
           </div>
         </div>
+
+        <div class="atlas-next-transport">
+          <strong>${escapeHtml(transport.title || transport.flight_number || transport.vehicle || "예정된 교통편이 아직 없어요.")}</strong>
+          <p>
+            ${escapeHtml(transport.departure_place || "-")}
+            →
+            ${escapeHtml(transport.arrival_place || "-")}
+          </p>
+        </div>
       </div>
-    `;
-  }
+    </div>
+  `;
+
+  void refreshWeatherStatusItem();
+}
 
   async function getCurrentWeatherStatusItem() {
     const currentPlace = findCurrentWeatherPlace();
@@ -197,7 +198,26 @@ await renderStatus({
       detail: weather.value || "-"
     };
   }
+async function refreshWeatherStatusItem() {
+  try {
+    const weather = await getCurrentWeatherStatusItem();
 
+    const labelEl = document.getElementById("atlas-weather-label");
+    const valueEl = document.getElementById("atlas-weather-value");
+
+    if (!labelEl || !valueEl) return;
+
+    labelEl.textContent = weather.label || "현재 지역 날씨";
+    valueEl.textContent = weather.value || "확인 대기";
+  } catch (error) {
+    console.warn("Atlas weather background update failed:", error);
+
+    const valueEl = document.getElementById("atlas-weather-value");
+    if (valueEl) {
+      valueEl.textContent = "확인 대기";
+    }
+  }
+}
   function findCurrentWeatherPlace() {
     const places = STATE.places || [];
 
