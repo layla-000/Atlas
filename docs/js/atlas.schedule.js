@@ -179,9 +179,8 @@ const date = String(event.date || start || "").slice(0, 10);
           <div class="time">${escapeHtml(event.time || "--:--")}</div>
           <div class="duration">${escapeHtml(formatDurationLabel(event))}</div>
         </div>
-        <div class="dot"></div>
+        <div class="timeline-marker" aria-hidden="true">${iconForType(event.type)}</div>
         <div>
-          <div class="event-icon">${iconForType(event.type)}</div>
           <div class="event-title">${escapeHtml(event.title)}</div>
           <div class="event-place">
             <span>${escapeHtml(formatEventPlaceLine(event))}</span>

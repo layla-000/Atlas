@@ -174,8 +174,8 @@ body {
 .timeline-item::before {
   content: "";
   position: absolute;
-  left: 103px;
-  top: 24px;
+  left: 142px;
+  top: 30px;
   bottom: -4px;
   width: 2px;
   background: var(--line);
@@ -197,24 +197,16 @@ body {
   font-weight: 650;
 }
 
-.dot {
-  width: 18px;
-  height: 18px;
-  margin: 7px auto 0;
-  border-radius: 999px;
-  background: var(--blue);
-  z-index: 1;
-}
-
-.event-icon {
-  width: 54px;
-  height: 54px;
+.timeline-marker {
+  width: 42px;
+  height: 42px;
+  margin: -4px auto 0;
   display: grid;
   place-items: center;
-  border-radius: 999px;
-  background: var(--soft-blue);
-  color: var(--blue);
-  font-size: 25px;
+  font-size: 30px;
+  line-height: 1;
+  z-index: 1;
+  filter: drop-shadow(0 2px 5px rgba(8, 22, 48, 0.16));
 }
 
 .event-title {
@@ -319,7 +311,8 @@ body {
   }
 
   .timeline-item::before {
-    left: 82px;
+    left: 96px;
+    top: 26px;
   }
 
   .time {
@@ -330,10 +323,11 @@ body {
     font-size: 13px;
   }
 
-  .event-icon {
-    width: 42px;
-    height: 42px;
-    font-size: 20px;
+  .timeline-marker {
+    width: 34px;
+    height: 34px;
+    margin-top: -2px;
+    font-size: 25px;
   }
 
   .event-title {
