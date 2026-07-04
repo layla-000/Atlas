@@ -498,14 +498,36 @@ function inferManualPlaceCategory_(googlePlace) {
     return STATE.isReady;
   }
 function buildGoogleMapsUrl_(place) {
-  if (place?.placeId) {
-    return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(place.placeId)}`;
+  const placeId = String(place?.placeId || place?.place_id || "").trim();
+  const title = String(place?.title || place?.name || "").trim();
+  const address = String(place?.address || place?.query || "").trim();
+  const lat = Number(place?.lat);
+  const lng = Number(place?.lng);
+
+  // Google Maps mobile app does not reliably resolve URLs like
+  // /maps/place/?q=place_id:xxxx. Use the official Maps URL format instead:
+  // query + query_place_id. This opens the actual place in both Safari and
+  // the Google Maps app instead of searching the literal place_id string.
+  if (placeId) {
+    const query = title || address || (Number.isFinite(lat) && Number.isFinite(lng) ? `${lat},${lng}` : "");
+    const params = new URLSearchParams({
+      api: "1",
+      query: query || placeId,
+      query_place_id: placeId
+    });
+
+    return `https://www.google.com/maps/search/?${params.toString()}`;
   }
 
-  const query = place?.address || place?.query || place?.title || "";
+  const query = address || title || (Number.isFinite(lat) && Number.isFinite(lng) ? `${lat},${lng}` : "");
   if (!query) return "https://www.google.com/maps";
 
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  const params = new URLSearchParams({
+    api: "1",
+    query
+  });
+
+  return `https://www.google.com/maps/search/?${params.toString()}`;
 }
   function escapeHtml_(value) {
     return String(value || "")
