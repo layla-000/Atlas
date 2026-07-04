@@ -800,40 +800,6 @@ button {
   box-shadow: 0 0 0 3px rgba(54, 199, 183, 0.18), 0 8px 22px rgba(0, 0, 0, 0.16);
 }
 
-
-.atlas-map-action-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.atlas-map-link-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 38px;
-  padding: 9px 10px;
-  border-radius: 999px;
-  background: #f3f4f6;
-  color: #18211f;
-  font-family: var(--atlas-font);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.2;
-  text-align: center;
-  text-decoration: none;
-}
-
-.atlas-map-link-button-primary {
-  background: #36c7b7;
-  color: #10211f;
-}
-
-.atlas-map-link-button:hover {
-  filter: brightness(1.03);
-  text-decoration: none;
-}
 .atlas-map-add-button,
 .atlas-map-delete-button {
   display: block;
@@ -1072,4 +1038,86 @@ button {
     margin-top: 10px;
     color: var(--atlas-text-soft);
     font-size: 12px;
+}
+
+/* ===== Atlas Map InfoWindow Buttons v3 ===== */
+.gm-style .gm-style-iw-c {
+  padding: 10px 12px 12px 12px !important;
+  border-radius: 18px !important;
+  max-width: min(340px, calc(100vw - 44px)) !important;
+}
+
+.gm-style .gm-style-iw-d {
+  overflow: auto !important;
+  padding: 0 !important;
+  max-height: min(320px, calc(100vh - 180px)) !important;
+}
+
+.atlas-map-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.atlas-map-link-button,
+.atlas-map-add-button,
+.atlas-map-delete-button {
+  box-sizing: border-box;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 12px;
+  font-family: var(--atlas-font);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.atlas-map-link-button {
+  background: #eef2f2;
+  color: #123331;
+}
+
+.atlas-map-link-button-primary,
+.atlas-map-add-button {
+  background: #36c7b7;
+  color: #10211f;
+}
+
+.atlas-map-delete-button {
+  margin-top: 8px;
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+.atlas-map-add-button {
+  margin-top: 12px;
+}
+
+.atlas-map-link-button:hover,
+.atlas-map-add-button:hover,
+.atlas-map-delete-button:hover {
+  filter: brightness(1.03);
+}
+
+@media (max-width: 520px) {
+  .atlas-map-info {
+    min-width: 236px;
+    max-width: calc(100vw - 88px);
+  }
+
+  .atlas-map-action-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
 }

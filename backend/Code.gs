@@ -108,6 +108,12 @@ manual_map_places: function() {
 map_marker_health: function() {
   return getAtlasMapMarkerStorageHealth();
 },
+save_manual_map_place: function() {
+  return saveAtlasManualMapPlace(getAtlasPayloadFromRequest_(e));
+},
+remove_manual_map_place: function() {
+  return removeAtlasManualMapPlace(getAtlasPayloadFromRequest_(e));
+},
     dashboard_note: function() {
       return getAtlasDashboardNote_(getTripIdFromRequest_(e));
     },
@@ -149,6 +155,31 @@ map_marker_health: function() {
     message: "Atlas backend is running."
   });
 }
+
+function getAtlasPayloadFromRequest_(e) {
+  const params = e && e.parameter ? e.parameter : {};
+
+  if (params.payload) {
+    try {
+      const parsed = JSON.parse(params.payload);
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch (error) {
+      throw new Error("Invalid payload JSON: " + error.message);
+    }
+  }
+
+  const payload = {};
+  Object.keys(params || {}).forEach(function(key) {
+    if (key === "action" || key === "callback" || key === "_" ) return;
+    payload[key] = params[key];
+  });
+
+  if (params.lat !== undefined) payload.lat = Number(params.lat);
+  if (params.lng !== undefined) payload.lng = Number(params.lng);
+
+  return payload;
+}
+
 function createAtlasJsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))

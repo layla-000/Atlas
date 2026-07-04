@@ -139,28 +139,59 @@ async function getCurrentWeather(place) {
     return data.places || data.items || [];
   }
 
-  async function saveManualMapPlace(place) {
-    const fallback = { success: false, place: null };
+  async function requestViaGetPayload(action, payload, fallback) {
+    const endpoint = getBackendEndpoint();
+    if (!endpoint) return fallback;
 
-    return request("save_manual_map_place", fallback, {
+    const url = `${endpoint}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(JSON.stringify(payload || {}))}&_=${Date.now()}`;
+
+    try {
+      const response = await fetch(url, { method: "GET", cache: "no-store" });
+      const data = await response.json();
+      if (!data || data.success === false || data.ok === false) return data || fallback;
+      return data;
+    } catch (error) {
+      console.warn(`AtlasAPI ${action} GET fallback failed:`, error);
+      return fallback;
+    }
+  }
+
+  async function saveManualMapPlace(place) {
+    const fallback = { success: false, ok: false, place: null };
+    const payload = place || {};
+
+    const postResult = await request("save_manual_map_place", fallback, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify({ action: "save_manual_map_place", payload: place || {}, ...(place || {}) })
+      body: JSON.stringify({ action: "save_manual_map_place", payload })
     });
+
+    if (postResult && postResult.success !== false && postResult.ok !== false && postResult.place) {
+      return postResult;
+    }
+
+    return requestViaGetPayload("save_manual_map_place", payload, postResult || fallback);
   }
 
   async function removeManualMapPlace(placeId) {
-    const fallback = { success: false };
+    const fallback = { success: false, ok: false };
+    const payload = { placeId };
 
-    return request("remove_manual_map_place", fallback, {
+    const postResult = await request("remove_manual_map_place", fallback, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
       },
-      body: JSON.stringify({ action: "remove_manual_map_place", payload: { placeId }, placeId })
+      body: JSON.stringify({ action: "remove_manual_map_place", payload })
     });
+
+    if (postResult && postResult.success !== false && postResult.ok !== false) {
+      return postResult;
+    }
+
+    return requestViaGetPayload("remove_manual_map_place", payload, postResult || fallback);
   }
 
 async function updateScheduleNote(params) {

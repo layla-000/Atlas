@@ -326,7 +326,7 @@ function inferManualPlaceCategory_(googlePlace) {
         <a class="atlas-map-link-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
         <a class="atlas-map-link-button atlas-map-link-button-primary" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
       </div>
-      <button class="atlas-map-delete-button" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete</button>
+      ${String(place.type || "").startsWith("manual") ? `<button class="atlas-map-delete-button" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete from Atlas</button>` : ""}
     </div>
   `);
 
