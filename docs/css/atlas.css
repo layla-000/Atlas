@@ -91,7 +91,8 @@ button {
         "map"
         "plan"
         "status"
-        "actions";
+        "actions"
+        "notes";
 }
 
 #atlas-brief {
@@ -112,6 +113,10 @@ button {
 
 #atlas-actions {
     grid-area: actions;
+}
+
+#atlas-notes {
+    grid-area: notes;
 }
 
 .atlas-card {
@@ -257,7 +262,8 @@ button {
             "map brief"
             "map plan"
             "map status"
-            "actions actions";
+            "actions actions"
+            "notes notes";
         align-items: stretch;
     }
 
@@ -1002,4 +1008,34 @@ button {
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.45;
+}
+
+
+.atlas-notes-input {
+    width: 100%;
+    min-height: 180px;
+    resize: vertical;
+    padding: 16px 18px;
+    border: 1px solid var(--atlas-border);
+    border-radius: var(--atlas-radius-md);
+    background: rgba(42, 48, 47, 0.72);
+    color: var(--atlas-text);
+    font: inherit;
+    line-height: 1.6;
+    outline: none;
+}
+
+.atlas-notes-input:focus {
+    border-color: rgba(54, 199, 183, 0.7);
+    box-shadow: 0 0 0 3px rgba(54, 199, 183, 0.12);
+}
+
+.atlas-notes-input::placeholder {
+    color: var(--atlas-text-soft);
+}
+
+.atlas-notes-meta {
+    margin-top: 10px;
+    color: var(--atlas-text-soft);
+    font-size: 12px;
 }

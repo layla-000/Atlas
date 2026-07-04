@@ -184,9 +184,28 @@ const Atlas = (() => {
     STATE.travelStatus = travelStatus || {};
   }
 
+  function getOrCreateNotesContainer() {
+    let container = document.getElementById("atlas-notes");
+    if (container) return container;
+
+    container = document.createElement("section");
+    container.id = "atlas-notes";
+
+    const dashboardGrid = document.querySelector(".atlas-dashboard-grid");
+    if (dashboardGrid) {
+      dashboardGrid.appendChild(container);
+      return container;
+    }
+
+    const main = document.querySelector("main") || document.body;
+    main.appendChild(container);
+    return container;
+  }
+
   function renderNotes(noteValue) {
     const savedNote = noteValue == null ? getAtlasDashboardNoteFromLocal() : String(noteValue || "");
-    document.getElementById("atlas-notes").innerHTML = `
+    const notesContainer = getOrCreateNotesContainer();
+    notesContainer.innerHTML = `
       <div class="atlas-card">
         <div class="atlas-card-inner">
           <div class="atlas-card-label">Travel Notes</div>
