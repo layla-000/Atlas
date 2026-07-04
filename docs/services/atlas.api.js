@@ -127,24 +127,6 @@ async function getCurrentWeather(place) {
   return data.weather || fallback.weather;
 }
 
-  const data = await request("weather", fallback, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8"
-    },
-    body: JSON.stringify({
-      action: "weather",
-      payload: {
-        lat: Number(place.lat),
-        lng: Number(place.lng),
-        region: region
-      }
-    })
-  });
-
-  return data.weather || fallback.weather;
-}
-
   async function getMapPlaces() {
     const fallback = { success: true, places: [] };
     const data = await request("map_places", fallback);
