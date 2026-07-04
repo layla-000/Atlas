@@ -40,15 +40,19 @@ const Atlas = (() => {
     `;
   }
   function renderBriefPlaceholder() {
+    renderBriefTitleOnly({ title: "오늘의 브리핑을 준비하고 있어요." });
+  }
+
+  function renderBriefTitleOnly(brief) {
+    const title = brief && (brief.title || brief.summary || brief.message)
+      ? (brief.title || brief.summary || brief.message)
+      : "확인할 브리핑이 아직 없어요.";
+
     document.getElementById("atlas-brief").innerHTML = `
       <div class="atlas-card">
         <div class="atlas-card-inner">
           <div class="atlas-card-label">Atlas Brief</div>
-          <ul>
-            <li>오늘의 브리핑을 준비하고 있어요.</li>
-            <li>문서와 일정 정보를 확인하고 있어요.</li>
-            <li>필요한 액션을 정리하고 있어요.</li>
-          </ul>
+          <div class="atlas-brief-title-only">${escapeHtml(title)}</div>
         </div>
       </div>
     `;
@@ -61,27 +65,89 @@ const Atlas = (() => {
     console.log("ATLAS BRIEF RAW", brief);
     STATE.brief = brief || {};
 
-    const briefActions = brief.actions && brief.actions.length > 0
-      ? brief.actions.slice(0, 3)
-      : ["확인할 브리핑 항목이 아직 없어요."];
+    renderBriefTitleOnly(brief);
 
-    document.getElementById("atlas-brief").innerHTML = `
-      <div class="atlas-card">
-        <div class="atlas-card-inner">
-          <div class="atlas-card-label">Atlas Brief</div>
-          <ul>
-            ${briefActions.map((action) => `<li>${escapeHtml(action)}</li>`).join("")}
-          </ul>
-        </div>
-      </div>
-    `;
-
-    renderTimeline(brief.today_plan || []);
-await renderStatus({
-  time_card: brief.time_card || {},
-  next_transport: brief.next_transport || {}
-});
+    await refreshTodayPlan(brief.today_plan || []);
+    await renderStatus({
+      time_card: brief.time_card || {},
+      next_transport: brief.next_transport || {}
+    });
     renderActions(brief.quick_links || brief.drive_links || {});
+  }
+
+
+  async function refreshTodayPlan(fallbackItems) {
+    const scheduleItems = await getTodayPlanFromSchedule();
+    renderTimeline(scheduleItems.length ? scheduleItems : fallbackItems);
+  }
+
+  async function getTodayPlanFromSchedule() {
+    if (!window.AtlasAPI || !AtlasAPI.getFullSchedule) return [];
+
+    try {
+      const result = await AtlasAPI.getFullSchedule({
+        tripId: "trip_turkiye_2026",
+        startDate: "2026-09-23",
+        endDate: "2026-10-02"
+      });
+
+      const events = normalizeDashboardScheduleEvents(result.schedule || result.events || []);
+      if (!events.length) return [];
+
+      const todayKey = toDateKey(new Date());
+      const dates = [...new Set(events.map((event) => event.date))].sort();
+      const targetDate = dates.includes(todayKey)
+        ? todayKey
+        : dates.slice().sort((a, b) => Math.abs(dateDistance(a, todayKey)) - Math.abs(dateDistance(b, todayKey)))[0];
+
+      return events
+        .filter((event) => event.date === targetDate)
+        .slice(0, 3);
+    } catch (error) {
+      console.warn("Atlas Today's Plan schedule load failed:", error);
+      return [];
+    }
+  }
+
+  function normalizeDashboardScheduleEvents(events) {
+    return (Array.isArray(events) ? events : [])
+      .map((event) => {
+        const start = event.startAt || event.start_at || event.start || event.datetime || event.date || "";
+        const end = event.endAt || event.end_at || event.end || "";
+        const date = String(event.date || start || "").slice(0, 10);
+
+        return {
+          id: event.id || `${date}-${event.title || event.name || Math.random()}`,
+          date,
+          time: event.time || extractTime(start),
+          endTime: extractTime(end),
+          title: event.title || event.name || "일정",
+          location: event.location || event.place || event.address || event.route || event.summary || ""
+        };
+      })
+      .filter((event) => event.date)
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return (a.time || "99:99").localeCompare(b.time || "99:99");
+      });
+  }
+
+  function extractTime(value) {
+    if (!value) return "";
+    const text = String(value);
+    const match = text.match(/T(\d{2}:\d{2})/) || text.match(/\b(\d{2}:\d{2})\b/);
+    return match ? match[1] : "";
+  }
+
+  function toDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function dateDistance(dateA, dateB) {
+    return new Date(`${dateA}T00:00:00`).getTime() - new Date(`${dateB}T00:00:00`).getTime();
   }
 
   async function refreshTravelStatus() {
