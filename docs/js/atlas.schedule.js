@@ -1,7 +1,20 @@
 const AtlasSchedule = (() => {
-  const START_DATE = "2026-09-23";
-  const END_DATE = "2026-10-02";
-  const TRIP_ID = "trip_turkiye_2026";
+const START_DATE = "2026-09-23";
+const END_DATE = "2026-10-02";
+const TRIP_ID = "trip_turkiye_2026";
+
+const DATE_KEYS = [
+  "2026-09-23",
+  "2026-09-24",
+  "2026-09-25",
+  "2026-09-26",
+  "2026-09-27",
+  "2026-09-28",
+  "2026-09-29",
+  "2026-09-30",
+  "2026-10-01",
+  "2026-10-02"
+];
 
   const STATE = {
     days: [],
@@ -11,7 +24,7 @@ const AtlasSchedule = (() => {
   };
 
   async function initialize() {
-    STATE.days = buildEmptyDays(START_DATE, END_DATE);
+    STATE.days = buildEmptyDays();
     render();
 
     try {
@@ -180,28 +193,17 @@ async function fetchScheduleFromAtlasMemory() {
     }
   }
 
-function buildEmptyDays(startDate, endDate) {
-  const days = [];
+function buildEmptyDays() {
+  return DATE_KEYS.map((dateKey) => {
+    const parts = dateKey.split("-").map(Number);
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
 
-  const startParts = startDate.split("-").map(Number);
-  const endParts = endDate.split("-").map(Number);
-
-  const cursor = new Date(startParts[0], startParts[1] - 1, startParts[2]);
-  const end = new Date(endParts[0], endParts[1] - 1, endParts[2]);
-
-  while (cursor <= end) {
-    const date = toDateKey(cursor);
-
-    days.push({
-      date,
-      weekday: weekdayKo(cursor),
+    return {
+      date: dateKey,
+      weekday: weekdayKo(date),
       events: []
-    });
-
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return days;
+    };
+  });
 }
 
   function extractTime(value) {
