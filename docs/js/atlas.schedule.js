@@ -28,13 +28,17 @@ const DATE_KEYS = [
     render();
 
     try {
-      const events = await fetchScheduleFromAtlasMemory();
-      applyEvents(events);
-      render();
+      await reloadSchedule();
     } catch (error) {
       console.error("Atlas schedule load failed:", error);
       renderError(error);
     }
+  }
+
+  async function reloadSchedule() {
+    const events = await fetchScheduleFromAtlasMemory();
+    applyEvents(events);
+    render();
   }
 
 async function fetchScheduleFromAtlasMemory() {
@@ -68,7 +72,8 @@ const date = String(event.date || start || "").slice(0, 10);
           type: event.scheduleType || event.schedule_type || event.type || "etc",
           confirmationNumber: getConfirmationNumber(event),
           notes: getEventNotes(event),
-          route: event.route || event.summary || ""
+          route: event.route || event.summary || "",
+          source: event.source || ""
         };
       })
       .filter((event) => event.date >= START_DATE && event.date <= END_DATE)
@@ -178,10 +183,25 @@ const date = String(event.date || start || "").slice(0, 10);
         <div>
           <div class="event-icon">${iconForType(event.type)}</div>
           <div class="event-title">${escapeHtml(event.title)}</div>
-          <div class="event-place">${escapeHtml(formatEventPlaceLine(event))}</div>
+          <div class="event-place">
+            <span>${escapeHtml(formatEventPlaceLine(event))}</span>
+            ${event.source === "manual_schedule" ? renderNoteEditButton(event) : ""}
+          </div>
           <span class="event-tag">${escapeHtml(labelForType(event.type))}</span>
         </div>
       </div>
+    `;
+  }
+
+  function renderNoteEditButton(event) {
+    return `
+      <button
+        type="button"
+        class="event-note-edit"
+        style="margin-left: 8px; border: 0; border-radius: 999px; padding: 4px 9px; background: rgba(79, 96, 255, 0.10); color: #4f60ff; font: inherit; font-size: 0.8em; cursor: pointer;"
+        onclick="AtlasSchedule.editNote('${escapeJs(event.id)}')"
+        aria-label="노트 수정"
+      >수정</button>
     `;
   }
 
@@ -218,6 +238,50 @@ const date = String(event.date || start || "").slice(0, 10);
   function goToDay(index) {
     STATE.currentIndex = Math.max(0, Math.min(index, STATE.days.length - 1));
     render();
+  }
+
+  async function editNote(eventId) {
+    const event = findEventById(eventId);
+    if (!event) {
+      alert("수정할 일정을 찾지 못했어요.");
+      return;
+    }
+
+    if (!window.AtlasAPI || !AtlasAPI.updateScheduleNote) {
+      alert("노트 수정 API가 아직 연결되어 있지 않아요.");
+      return;
+    }
+
+    const nextNote = window.prompt("노트를 수정해요.", event.notes || "");
+    if (nextNote === null) return;
+
+    try {
+      const result = await AtlasAPI.updateScheduleNote({
+        id: event.id,
+        source: event.source,
+        notes: nextNote
+      });
+
+      if (!result || result.success === false || result.ok === false) {
+        throw new Error((result && (result.error || result.message)) || "노트 수정에 실패했어요.");
+      }
+
+      event.notes = nextNote;
+      render();
+      await reloadSchedule();
+    } catch (error) {
+      console.error("Atlas note update failed:", error);
+      alert(error.message || "노트 수정에 실패했어요.");
+    }
+  }
+
+  function findEventById(eventId) {
+    for (let i = 0; i < STATE.days.length; i += 1) {
+      const found = STATE.days[i].events.find((event) => event.id === eventId);
+      if (found) return found;
+    }
+
+    return null;
   }
 
   function bindSwipe() {
@@ -321,6 +385,15 @@ function toDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
+  function escapeJs(value) {
+    return String(value || "")
+      .replaceAll("\\", "\\\\")
+      .replaceAll("'", "\\'")
+      .replaceAll('"', '\\"')
+      .replaceAll("\n", "\\n")
+      .replaceAll("\r", "");
+  }
+
   function escapeHtml(value) {
     return String(value || "")
       .replaceAll("&", "&amp;")
@@ -332,7 +405,8 @@ function toDateKey(date) {
 
   return {
     initialize,
-    goToDay
+    goToDay,
+    editNote
   };
 })();
 

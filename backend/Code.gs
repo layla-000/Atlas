@@ -20,6 +20,11 @@ if (body.action === "get_full_schedule") {
     schedule: schedule
   });
 }
+
+    if (body.action === "update_schedule_note") {
+      return createJsonResponse(updateAtlasScheduleNote_(body.payload || {}));
+    }
+
     if (body.action === "create_schedule") {
       return createJsonResponse(handleAtlasScheduleCreate(body.payload));
     }
@@ -403,12 +408,21 @@ const date = normalizeAtlasDate_(event.startAt || event.date);
 
       return {
         id: event.id,
+        sourceId: event.sourceId || "",
         tripId: event.tripId,
         date: date,
         startAt: event.startAt || "",
         endAt: event.endAt || "",
         title: event.title || "일정",
         location: event.location || "",
+        confirmationNumber:
+          event.confirmationNumber ||
+          details.confirmationNumber ||
+          details.reservationNumber ||
+          details.bookingReference ||
+          details.bookingRef ||
+          details.pnr ||
+          "",
         scheduleType: event.scheduleType || event.timelineType || "etc",
         notes: event.notes || "",
         route: buildAtlasScheduleRoute_({
@@ -779,4 +793,92 @@ function deleteAtlasTimelineRecordsByIds() {
 
   Logger.log(JSON.stringify(result, null, 2));
   return result;
+}
+
+function updateAtlasScheduleNote_(payload) {
+  payload = payload || {};
+
+  const id = payload.id || payload.timelineEventId || payload.scheduleId || "";
+  if (!id) {
+    throw new Error("Missing schedule id.");
+  }
+
+  const notes = payload.notes == null ? "" : String(payload.notes);
+  const props = PropertiesService.getScriptProperties();
+  const now = new Date().toISOString();
+
+  let updatedTimeline = null;
+  let updatedSchedule = null;
+
+  const timelineKey = "ATLAS_TIMELINE_RECORD__" + id;
+  const timelineRaw = props.getProperty(timelineKey);
+
+  if (timelineRaw) {
+    updatedTimeline = JSON.parse(timelineRaw);
+    updatedTimeline.notes = notes;
+    updatedTimeline.updatedAt = now;
+    props.setProperty(timelineKey, JSON.stringify(updatedTimeline));
+
+    if (updatedTimeline.sourceId) {
+      updatedSchedule = updateAtlasScheduleRecordNoteById_(updatedTimeline.sourceId, notes, now);
+    }
+  }
+
+  if (!updatedTimeline) {
+    updatedSchedule = updateAtlasScheduleRecordNoteById_(id, notes, now);
+
+    if (updatedSchedule) {
+      updatedTimeline = updateAtlasTimelineRecordNoteBySourceId_(id, notes, now);
+    }
+  }
+
+  if (!updatedTimeline && !updatedSchedule) {
+    throw new Error("수정할 일정을 찾지 못했어요.");
+  }
+
+  return {
+    success: true,
+    ok: true,
+    id: id,
+    notes: notes,
+    timelineEvent: updatedTimeline,
+    scheduleRecord: updatedSchedule
+  };
+}
+
+function updateAtlasScheduleRecordNoteById_(scheduleId, notes, now) {
+  const props = PropertiesService.getScriptProperties();
+  const key = "ATLAS_SCHEDULE_RECORD__" + scheduleId;
+  const raw = props.getProperty(key);
+
+  if (!raw) return null;
+
+  const record = JSON.parse(raw);
+  record.notes = notes;
+  record.updatedAt = now;
+  props.setProperty(key, JSON.stringify(record));
+
+  return record;
+}
+
+function updateAtlasTimelineRecordNoteBySourceId_(scheduleId, notes, now) {
+  const props = PropertiesService.getScriptProperties();
+  const index = JSON.parse(props.getProperty("ATLAS_TIMELINE_INDEX") || "[]");
+
+  for (var i = 0; i < index.length; i++) {
+    const timelineId = index[i];
+    const key = "ATLAS_TIMELINE_RECORD__" + timelineId;
+    const raw = props.getProperty(key);
+    if (!raw) continue;
+
+    const event = JSON.parse(raw);
+    if (event && event.sourceId === scheduleId) {
+      event.notes = notes;
+      event.updatedAt = now;
+      props.setProperty(key, JSON.stringify(event));
+      return event;
+    }
+  }
+
+  return null;
 }

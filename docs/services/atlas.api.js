@@ -155,6 +155,24 @@ async function getCurrentWeather(place) {
       body: JSON.stringify({ placeId })
     });
   }
+
+async function updateScheduleNote(params) {
+  const fallback = {
+    success: false,
+    ok: false
+  };
+
+  return request("update_schedule_note", fallback, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      action: "update_schedule_note",
+      payload: params || {}
+    })
+  });
+}
 async function getFullSchedule(params) {
   const fallback = {
     success: false,
@@ -188,6 +206,7 @@ async function getFullSchedule(params) {
         getCurrentWeather,
     saveManualMapPlace,
     removeManualMapPlace,
+    updateScheduleNote,
     getFullSchedule
   };
 })();
