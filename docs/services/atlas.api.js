@@ -165,20 +165,29 @@ window.AtlasAPI = (() => {
     });
   }
 async function getFullSchedule(params) {
-  const response = await fetch(API_URL, {
+  const fallback = {
+    success: false,
+    ok: false,
+    schedule: [],
+    events: []
+  };
+
+  const data = await request("get_full_schedule", fallback, {
     method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
     body: JSON.stringify({
       action: "get_full_schedule",
       payload: params || {}
     })
   });
 
-  const json = await response.json();
-  if (!json.ok) {
-    throw new Error(json.error || json.message || "전체 일정 조회에 실패했어요.");
+  if (!data.ok && data.success === false) {
+    throw new Error(data.error || data.message || "전체 일정 조회에 실패했어요.");
   }
 
-  return json;
+  return data;
 }
   return {
     getBrief,
