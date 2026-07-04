@@ -415,20 +415,22 @@ function inferManualPlaceCategory_(googlePlace) {
 
   STATE.infoWindow.setContent(`
     <div class="atlas-map-info">
-      <a
-        class="atlas-map-info-title-link"
-        href="${googleMapsUrl}"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        ${escapeHtml_(place.title)}
-      </a>
+      <div class="atlas-map-info-header">
+        <a
+          class="atlas-map-info-title-link"
+          href="${googleMapsUrl}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          ${escapeHtml_(place.title)}
+        </a>
+        <button class="atlas-map-add-chip" type="button" data-atlas-add-place="true">Add</button>
+      </div>
       <p>${escapeHtml_(place.address)}</p>
       <div class="atlas-map-action-row">
         <a class="atlas-map-link-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
         <a class="atlas-map-link-button atlas-map-link-button-primary" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
       </div>
-      <button class="atlas-map-add-button" type="button" data-atlas-add-place="true">Add to Atlas</button>
     </div>
   `);
 
@@ -450,7 +452,7 @@ function inferManualPlaceCategory_(googlePlace) {
 
     if (button) {
       button.disabled = true;
-      button.textContent = "Saving...";
+      button.textContent = "Saving";
     }
 
     try {
@@ -477,7 +479,7 @@ function inferManualPlaceCategory_(googlePlace) {
 
       if (button) {
         button.disabled = false;
-        button.textContent = "Add to Atlas";
+        button.textContent = "Add";
       }
 
       alert((error && error.message ? error.message : "마커 저장에 실패했어요.") + "\n\n온라인 저장이 성공해야 다른 기기에서도 보여요.");

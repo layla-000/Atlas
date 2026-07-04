@@ -1144,6 +1144,36 @@ button {
   min-width: 0;
 }
 
+
+.atlas-map-add-chip {
+  flex: 0 0 auto;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #36c7b7;
+  color: #10211f;
+  font-family: var(--atlas-font);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.atlas-map-add-chip:hover {
+  filter: brightness(1.03);
+}
+
+.atlas-map-add-chip:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
 .atlas-map-delete-chip {
   flex: 0 0 auto;
   min-height: 30px;
@@ -1174,7 +1204,8 @@ button {
     gap: 8px;
   }
 
-  .atlas-map-delete-chip {
+  .atlas-map-delete-chip,
+  .atlas-map-add-chip {
     min-height: 28px;
     padding: 6px 9px;
     font-size: 11px;
