@@ -265,6 +265,7 @@ function inferManualPlaceCategory_(googlePlace) {
 
   function openPlaceInfoWindow_(marker, place) {
   const googleMapsUrl = buildGoogleMapsUrl_(place);
+  const googleDirectionsUrl = buildGoogleMapsDirectionsUrl_(place);
 
   STATE.infoWindow.setContent(`
     <div class="atlas-map-info">
@@ -277,6 +278,10 @@ function inferManualPlaceCategory_(googlePlace) {
         ${escapeHtml_(place.title || place.name || "Atlas place")}
       </a>
       ${place.address || place.query ? `<p>${escapeHtml_(place.address || place.query)}</p>` : ""}
+      <div class="atlas-map-info-actions">
+        <a class="atlas-map-action-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+        <a class="atlas-map-action-button atlas-map-directions-button" href="${googleDirectionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
+      </div>
       <button class="atlas-map-delete-button" type="button" data-atlas-delete-place="${escapeHtml_(place.id)}">Delete</button>
     </div>
   `);
@@ -344,6 +349,7 @@ function inferManualPlaceCategory_(googlePlace) {
 
  function showPendingPlaceInfoWindow_(place) {
   const googleMapsUrl = buildGoogleMapsUrl_(place);
+  const googleDirectionsUrl = buildGoogleMapsDirectionsUrl_(place);
 
   STATE.infoWindow.setContent(`
     <div class="atlas-map-info">
@@ -356,6 +362,10 @@ function inferManualPlaceCategory_(googlePlace) {
         ${escapeHtml_(place.title)}
       </a>
       <p>${escapeHtml_(place.address)}</p>
+      <div class="atlas-map-info-actions">
+        <a class="atlas-map-action-button" href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+        <a class="atlas-map-action-button atlas-map-directions-button" href="${googleDirectionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>
+      </div>
       <button class="atlas-map-add-button" type="button" data-atlas-add-place="true">Add to Atlas</button>
     </div>
   `);
@@ -529,6 +539,26 @@ function buildGoogleMapsUrl_(place) {
 
   return `https://www.google.com/maps/search/?${params.toString()}`;
 }
+function buildGoogleMapsDirectionsUrl_(place) {
+  const placeId = String(place?.placeId || place?.place_id || "").trim();
+  const title = String(place?.title || place?.name || "").trim();
+  const address = String(place?.address || place?.query || "").trim();
+  const lat = Number(place?.lat);
+  const lng = Number(place?.lng);
+  const destination = address || title || (Number.isFinite(lat) && Number.isFinite(lng) ? `${lat},${lng}` : "");
+
+  if (!destination && !placeId) return "https://www.google.com/maps";
+
+  const params = new URLSearchParams({
+    api: "1",
+    destination: destination || placeId
+  });
+
+  if (placeId) params.set("destination_place_id", placeId);
+
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
   function escapeHtml_(value) {
     return String(value || "")
       .replaceAll("&", "&amp;")
