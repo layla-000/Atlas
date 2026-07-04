@@ -76,12 +76,18 @@ async function fetchScheduleFromAtlasMemory() {
     const dates = listDateKeysBetween(startDate, endDate);
     const originalId = event.id || `${startDate}-${event.title || Math.random()}`;
 
-    return dates.map((date, index) => ({
+    return dates.map((date, index) => {
+      const isFirstDay = index === 0;
+      const isLastDay = date === endDate;
+      const startTime = event.time || extractTime(start);
+      const endTime = extractTime(end);
+
+      return {
       id: originalId,
       displayId: `${originalId}__${date}`,
       date,
-      time: index === 0 ? (event.time || extractTime(start)) : "",
-      endTime: date === endDate ? extractTime(end) : "",
+      time: isFirstDay ? startTime : (isLastDay ? endTime : ""),
+      endTime: isLastDay ? endTime : "",
       title: event.title || event.name || "일정",
       location: event.location || event.place || event.address || "",
       type: event.scheduleType || event.schedule_type || event.type || "etc",
@@ -94,7 +100,8 @@ async function fetchScheduleFromAtlasMemory() {
       isMultiDay: dates.length > 1,
       multiDayIndex: index,
       multiDayCount: dates.length
-    }));
+      };
+    });
   }
 
   function getConfirmationNumber(event) {
@@ -431,6 +438,13 @@ function buildEmptyDays() {
 
   function formatDurationLabel(event) {
     if (!event.endTime) return "-";
+
+    if (event.isMultiDay) {
+      if (event.multiDayIndex === 0) return `${event.time || "시작"} - 계속`;
+      if (event.multiDayIndex === event.multiDayCount - 1) return "종료";
+      return "계속";
+    }
+
     return `${event.time} - ${event.endTime}`;
   }
 
