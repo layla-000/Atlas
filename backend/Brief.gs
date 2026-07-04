@@ -339,7 +339,14 @@ function buildAtlasNextTransportFromManualTimeline_(tripId, tripTimezone) {
   const events = getAtlasManualTimelineEventsForTrip_(tripId);
 
   const candidates = events.filter(function(event) {
-    if (event.timelineType !== "transport") return false;
+    const scheduleType = String(event.scheduleType || "").toLowerCase();
+    const timelineType = String(event.timelineType || "").toLowerCase();
+
+    const isTransport =
+      timelineType === "transport" ||
+      ["flight", "train", "bus", "transport"].indexOf(scheduleType) >= 0;
+
+    if (!isTransport) return false;
 
     const start = parseAtlasScheduleDate_(event.startAt);
     return start && !isNaN(start.getTime()) && start.getTime() >= now.getTime();
@@ -354,15 +361,33 @@ function buildAtlasNextTransportFromManualTimeline_(tripId, tripTimezone) {
   const next = candidates[0];
   const details = next.details || {};
 
+  const departurePlace =
+    next.departurePlace ||
+    details.departurePlace ||
+    details.departure_place ||
+    "";
+
+  const arrivalPlace =
+    next.arrivalPlace ||
+    details.arrivalPlace ||
+    details.arrival_place ||
+    "";
+
   return {
     type: next.scheduleType || "transport",
     label: "다음 이동",
-    title: next.title || "",
-    departure_place: next.departurePlace || details.departurePlace || "",
+    title: next.title || buildTransportTitle_(
+      mapTransportType_(next.scheduleType || "transport"),
+      details.airline || details.operator || details.provider || "",
+      details.number || "",
+      departurePlace,
+      arrivalPlace
+    ),
+    departure_place: departurePlace,
     departure_time: formatAtlasScheduleTime_(next.startAt, tripTimezone),
-    arrival_place: next.arrivalPlace || details.arrivalPlace || "",
+    arrival_place: arrivalPlace,
     arrival_time: formatAtlasScheduleTime_(next.endAt, tripTimezone),
-    reference: details.number || ""
+    reference: details.number || details.reservationNumber || ""
   };
 }
 

@@ -70,21 +70,13 @@ function doGet(e) {
     queue: function() {
       return { success: true, records: getQueuedInboxRecords(20) };
     },
-    map_places: function() {
-  const tripId = e && e.parameter && e.parameter.tripId
-    ? e.parameter.tripId
-    : "trip_turkiye_2026";
-if (action === "map_places") {
-  return jsonOutput_(getAtlasMapPlacesForTrip(getTripIdFromRequest_(e)));
-}
+map_places: function() {
+  return getAtlasMapPlacesForTrip(getTripIdFromRequest_(e));
+},
 
-if (action === "manual_map_places") {
-  return jsonOutput_(getAtlasManualMapPlaces(getTripIdFromRequest_(e)));
-}
-  return {
-    success: true,
-    places: getAtlasMapPlacesForTrip(tripId)
-  };
+manual_map_places: function() {
+  return getAtlasManualMapPlaces(getTripIdFromRequest_(e));
+ 
 },
     travel_memory: function() {
       const tripId = e && e.parameter && e.parameter.tripId
@@ -377,8 +369,60 @@ function getFullScheduleFromAtlasMemory_(payload) {
   const startDate = payload.startDate || "2026-09-23";
   const endDate = payload.endDate || "2026-10-02";
 
+  const manualSchedules = getFullScheduleFromManualTimeline_(tripId, startDate, endDate);
+  const memorySchedules = getFullScheduleFromTravelMemory_(tripId, startDate, endDate);
+
+  return manualSchedules
+    .concat(memorySchedules)
+    .sort(function(a, b) {
+      return String(a.startAt || a.date).localeCompare(String(b.startAt || b.date));
+    });
+}
+
+function getFullScheduleFromManualTimeline_(tripId, startDate, endDate) {
+  const props = PropertiesService.getScriptProperties();
+  const index = JSON.parse(props.getProperty("ATLAS_TIMELINE_INDEX") || "[]");
+
+  return index
+    .map(function(id) {
+      try {
+        return JSON.parse(props.getProperty("ATLAS_TIMELINE_RECORD__" + id) || "null");
+      } catch (error) {
+        return null;
+      }
+    })
+    .filter(function(event) {
+      if (!event || event.tripId !== tripId) return false;
+
+      const date = normalizeAtlasDate_(event.startAt);
+      return date && date >= startDate && date <= endDate;
+    })
+    .map(function(event) {
+      const details = event.details || {};
+      const date = normalizeAtlasDate_(event.startAt);
+
+      return {
+        id: event.id,
+        tripId: event.tripId,
+        date: date,
+        startAt: event.startAt || "",
+        endAt: event.endAt || "",
+        title: event.title || "일정",
+        location: event.location || "",
+        scheduleType: event.scheduleType || event.timelineType || "etc",
+        notes: event.notes || "",
+        route: buildAtlasScheduleRoute_({
+          departurePlace: event.departurePlace || details.departurePlace || "",
+          arrivalPlace: event.arrivalPlace || details.arrivalPlace || ""
+        }),
+        source: "manual_schedule"
+      };
+    });
+}
+
+function getFullScheduleFromTravelMemory_(tripId, startDate, endDate) {
   const memoryResult = getAtlasTravelMemoryForDashboard(tripId, 500);
-  const records = memoryResult.items || [];
+  const records = memoryResult.items || memoryResult.records || memoryResult.memories || [];
 
   return records
     .map(function(record) {
@@ -400,7 +444,7 @@ function getFullScheduleFromAtlasMemory_(payload) {
 
       const startAt = normalizeAtlasDate_(rawStart);
       const endAt = normalizeAtlasDate_(rawEnd);
-      const date = String(startAt || startDate).slice(0, 10);
+      const date = String(startAt || "").slice(0, 10);
 
       return {
         id: record.id || data.id || "",
@@ -408,27 +452,16 @@ function getFullScheduleFromAtlasMemory_(payload) {
         date: date,
         startAt: startAt,
         endAt: endAt,
-        title:
-          data.flightNumber ||
-          data.hotelName ||
-          data.name ||
-          "일정",
-        location:
-          data.address ||
-          data.departurePlace ||
-          data.arrivalPlace ||
-          data.hotelName ||
-          "",
+        title: data.flightNumber || data.hotelName || data.name || "일정",
+        location: data.address || data.departurePlace || data.arrivalPlace || data.hotelName || "",
         scheduleType: normalizeAtlasScheduleType_(objectType),
         notes: data.roomType || data.notes || data.memo || "",
-        route: buildAtlasScheduleRoute_(data)
+        route: buildAtlasScheduleRoute_(data),
+        source: "travel_memory"
       };
     })
     .filter(function(item) {
       return item.date && item.date >= startDate && item.date <= endDate;
-    })
-    .sort(function(a, b) {
-      return String(a.startAt || a.date).localeCompare(String(b.startAt || b.date));
     });
 }
 
@@ -570,14 +603,15 @@ function getAtlasCurrentWeather_(payload) {
 
     const data = JSON.parse(text);
     const temperature = data && data.main ? data.main.temp : null;
-    const weatherText =
+    const weatherId =
       data &&
       data.weather &&
       data.weather[0] &&
-      data.weather[0].description
-        ? data.weather[0].description
-        : "";
+      data.weather[0].id !== undefined
+        ? Number(data.weather[0].id)
+        : null;
 
+    const weatherText = getAtlasWeatherLabelFromOpenWeatherId_(weatherId);
     const cityName = (data && data.name) ? data.name : region;
 
     if (temperature === null || temperature === undefined) {
@@ -593,6 +627,8 @@ function getAtlasCurrentWeather_(payload) {
       }
     };
   } catch (error) {
+    Logger.log("getAtlasCurrentWeather_ failed: " + error);
+
     return {
       success: true,
       ok: true,
@@ -601,14 +637,26 @@ function getAtlasCurrentWeather_(payload) {
   }
 }
 
-function getAtlasFallbackWeather_(region, lat, lng, error) {
-  const name = String(region || "현재 지역");
+function getAtlasWeatherLabelFromOpenWeatherId_(weatherId) {
+  if (weatherId === null || weatherId === undefined || isNaN(weatherId)) {
+    return "날씨 확인 중";
+  }
 
-  return {
-    label: name + " 날씨",
-    value: "날씨 정보 연결 실패"
-  };
+  if (weatherId >= 200 && weatherId < 300) return "뇌우";
+  if (weatherId >= 300 && weatherId < 400) return "이슬비";
+  if (weatherId >= 500 && weatherId < 600) return "비";
+  if (weatherId >= 600 && weatherId < 700) return "눈";
+  if (weatherId >= 700 && weatherId < 800) return "안개";
+
+  if (weatherId === 800) return "맑음";
+  if (weatherId === 801) return "구름 조금";
+  if (weatherId === 802) return "구름 약간";
+  if (weatherId === 803) return "구름 많음";
+  if (weatherId === 804) return "흐림";
+
+  return "날씨 확인 중";
 }
+
 function getAtlasFallbackWeather_(region, lat, lng, error) {
   const name = String(region || "현재 지역");
 
@@ -650,4 +698,85 @@ function getAtlasFallbackWeather_(region, lat, lng, error) {
     label: name + " 날씨",
     value: "확인 대기"
   };
+}
+function resetAtlasBriefCache_(tripId) {
+  const targetTripId = tripId || "trip_turkiye_2026";
+  const props = PropertiesService.getScriptProperties();
+  const allProps = props.getProperties();
+  const deletedKeys = [];
+
+  Object.keys(allProps).forEach(function(key) {
+    if (
+      key === "ATLAS_LATEST_BRIEF" ||
+      key.indexOf("ATLAS_BRIEF") === 0 ||
+      key.indexOf("ATLAS_DAILY_BRIEF") === 0 ||
+      key.indexOf("ATLAS_TRAVEL_STATUS") === 0 ||
+      key.indexOf("ATLAS_STATUS") === 0
+    ) {
+      props.deleteProperty(key);
+      deletedKeys.push(key);
+    }
+  });
+
+  return {
+    success: true,
+    ok: true,
+    resetType: "brief_cache_only",
+    tripId: targetTripId,
+    deletedCount: deletedKeys.length,
+    deletedKeys: deletedKeys,
+    message: "Atlas Brief / Travel Status 캐시를 삭제했어요."
+  };
+}
+
+function testResetAtlasBriefCache() {
+  const result = resetAtlasBriefCache_("trip_turkiye_2026");
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+function regenerateAtlasBriefAfterReset() {
+  const result = generateAtlasBrief();
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
+function deleteAtlasTimelineRecordsByIds() {
+  const idsToDelete = [
+    "timeline_9d0e0fca-b0aa-48d2-96c1-5f0f8f2220fa",
+    "timeline_dc5f26d5-7413-420e-8eaa-08543839baa6",
+    "timeline_100463b7-5c79-4fd8-8c5e-6e665e280bae",
+    "timeline_b983b314-37d3-42ec-b320-c7abef6f7b63"
+  ];
+
+  const props = PropertiesService.getScriptProperties();
+  const indexKey = "ATLAS_TIMELINE_INDEX";
+  const recordPrefix = "ATLAS_TIMELINE_RECORD__";
+
+  const index = JSON.parse(props.getProperty(indexKey) || "[]");
+  const deleted = [];
+
+  idsToDelete.forEach(function(id) {
+    const recordKey = recordPrefix + id;
+    if (props.getProperty(recordKey)) {
+      props.deleteProperty(recordKey);
+      deleted.push(id);
+    }
+  });
+
+  const nextIndex = index.filter(function(id) {
+    return idsToDelete.indexOf(id) === -1;
+  });
+
+  props.setProperty(indexKey, JSON.stringify(nextIndex));
+
+  const result = {
+    success: true,
+    deletedCount: deleted.length,
+    deletedIds: deleted,
+    remainingCount: nextIndex.length,
+    remainingIndex: nextIndex
+  };
+
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
 }

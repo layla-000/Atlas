@@ -56,7 +56,7 @@ async function fetchScheduleFromAtlasMemory() {
       .map((event) => {
         const start = event.startAt || event.start_at || event.start || event.datetime || event.date;
         const end = event.endAt || event.end_at || event.end || "";
-        const date = event.date || String(start || "").slice(0, 10);
+const date = String(event.date || start || "").slice(0, 10);
 
         return {
           id: event.id || `${date}-${event.title || Math.random()}`,
