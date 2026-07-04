@@ -11,15 +11,20 @@ function doPost(e) {
       return createJsonResponse(removeAtlasManualMapPlace(body));
     }
 if (body.action === "get_full_schedule") {
+  const schedule = getFullScheduleFromAtlasMemory_(body.payload || {});
+
   return createJsonResponse({
     success: true,
     ok: true,
-    schedule: getFullScheduleFromAtlasMemory_(body.payload || {})
+    count: schedule.length,
+    schedule: schedule
   });
 }
     if (body.action === "create_schedule") {
       return createJsonResponse(handleAtlasScheduleCreate(body.payload));
     }
+
+    
 
     const uploadResult = handleAtlasUpload(body);
     const pipelineResult = runAtlasUploadPipelineAfterUpload_(uploadResult);
@@ -370,77 +375,88 @@ function getFullScheduleFromAtlasMemory_(payload) {
   const startDate = payload.startDate || "2026-09-23";
   const endDate = payload.endDate || "2026-10-02";
 
-  const memoryResult = getAtlasTravelMemoryForDashboard(tripId, 200);
-
-  const records =
-    memoryResult.records ||
-    memoryResult.memory ||
-    memoryResult.items ||
-    memoryResult.data ||
-    [];
+  const memoryResult = getAtlasTravelMemoryForDashboard(tripId, 500);
+  const records = memoryResult.items || [];
 
   return records
     .map(function(record) {
-      const startAt =
-        record.startAt ||
-        record.start_at ||
-        record.departureTime ||
-        record.departure_time ||
-        record.checkIn ||
-        record.check_in ||
-        record.date ||
+      const data = record.object || record.data || record.payload || record.details || record;
+      const objectType = String(record.objectType || data.type || "").toLowerCase();
+
+      const rawStart =
+        data.departureTime ||
+        data.checkIn ||
+        data.startAt ||
+        data.date ||
         "";
 
-      const endAt =
-        record.endAt ||
-        record.end_at ||
-        record.arrivalTime ||
-        record.arrival_time ||
-        record.checkOut ||
-        record.check_out ||
+      const rawEnd =
+        data.arrivalTime ||
+        data.checkOut ||
+        data.endAt ||
         "";
 
-      const date =
-        record.date ||
-        String(startAt).slice(0, 10);
+      const startAt = normalizeAtlasDate_(rawStart);
+      const endAt = normalizeAtlasDate_(rawEnd);
+      const date = String(startAt || startDate).slice(0, 10);
 
       return {
-        id: record.id || record.memoryId || record.objectId || "",
-        tripId: record.tripId || record.trip_id || tripId,
+        id: record.id || data.id || "",
+        tripId: record.tripId || data.tripId || tripId,
         date: date,
         startAt: startAt,
         endAt: endAt,
-        title: record.title || record.name || record.label || "일정",
+        title:
+          data.flightNumber ||
+          data.hotelName ||
+          data.name ||
+          "일정",
         location:
-          record.location ||
-          record.place ||
-          record.address ||
-          record.departurePlace ||
-          record.departure_place ||
-          record.arrivalPlace ||
-          record.arrival_place ||
+          data.address ||
+          data.departurePlace ||
+          data.arrivalPlace ||
+          data.hotelName ||
           "",
-        scheduleType:
-          record.scheduleType ||
-          record.schedule_type ||
-          record.type ||
-          record.category ||
-          "etc",
-        notes: record.notes || record.memo || record.description || "",
-        route:
-          record.route ||
-          buildAtlasScheduleRoute_(record) ||
-          ""
+        scheduleType: normalizeAtlasScheduleType_(objectType),
+        notes: data.roomType || data.notes || data.memo || "",
+        route: buildAtlasScheduleRoute_(data)
       };
     })
     .filter(function(item) {
-      return item.date >= startDate && item.date <= endDate;
+      return item.date && item.date >= startDate && item.date <= endDate;
     })
     .sort(function(a, b) {
-      const aKey = String(a.startAt || a.date || "");
-      const bKey = String(b.startAt || b.date || "");
-      return aKey.localeCompare(bKey);
+      return String(a.startAt || a.date).localeCompare(String(b.startAt || b.date));
     });
+}
+
+function normalizeAtlasDate_(value) {
+  if (!value) return "";
+
+  const text = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    return text;
+  }
+
+  const parsed = new Date(text);
+  if (isNaN(parsed.getTime())) return "";
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+
+  return year + "-" + month + "-" + day;
+}
+
+function normalizeAtlasScheduleType_(objectType) {
+  if (objectType.indexOf("flight") >= 0) return "flight";
+  if (objectType.indexOf("hotel") >= 0) return "hotel";
+  if (objectType.indexOf("train") >= 0) return "train";
+  if (objectType.indexOf("bus") >= 0) return "bus";
+  if (objectType.indexOf("restaurant") >= 0 || objectType.indexOf("food") >= 0) return "food";
+  if (objectType.indexOf("activity") >= 0) return "activity";
+  return "etc";
 }
 
 function buildAtlasScheduleRoute_(record) {
@@ -461,4 +477,40 @@ function buildAtlasScheduleRoute_(record) {
   }
 
   return "";
+}
+function resetAtlasMemoryOnly_(tripId) {
+  const targetTripId = tripId || "trip_turkiye_2026";
+  const props = PropertiesService.getScriptProperties();
+  const allProps = props.getProperties();
+
+  const deletedKeys = [];
+
+  Object.keys(allProps).forEach(function(key) {
+    if (
+      key === ATLAS_MEMORY_INDEX_KEY ||
+      key.indexOf(ATLAS_MEMORY_RECORD_PREFIX) === 0 ||
+      key === "ATLAS_TRAVEL_MEMORY_PATCHES__" + targetTripId ||
+  key.indexOf("ATLAS_BRIEF") === 0 ||
+  key.indexOf("ATLAS_DAILY_BRIEF") === 0 ||
+  key.indexOf("ATLAS_TRAVEL_STATUS") === 0
+    ) {
+      props.deleteProperty(key);
+      deletedKeys.push(key);
+    }
+  });
+
+  return {
+    success: true,
+    ok: true,
+    resetType: "memory_only",
+    tripId: targetTripId,
+    deletedCount: deletedKeys.length,
+    deletedKeys: deletedKeys,
+    message: "Atlas Memory Snapshot과 Travel Memory Patch만 삭제했어요. Parser, Inbox, 업로드 파일, 파이프라인 구조는 그대로 유지돼요."
+  };
+}
+function testResetAtlasMemoryOnly() {
+  const result = resetAtlasMemoryOnly_("trip_turkiye_2026");
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
 }

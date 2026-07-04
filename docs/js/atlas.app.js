@@ -192,7 +192,7 @@ await renderStatus({
 
     return {
       label: weather.label || "현재 지역 날씨",
-      value: weather.value || "확인 불가",
+      value: weather.value || "확인 대기",
       summary: `${weather.label || "현재 지역"} 기준 날씨예요.`,
       detail: weather.value || "-"
     };

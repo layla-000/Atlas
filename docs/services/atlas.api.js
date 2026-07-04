@@ -125,14 +125,15 @@ window.AtlasAPI = (() => {
         label: `${region} 날씨`,
         value: `${Math.round(Number(temperature))}°C · ${getWeatherLabelFromCode(weatherCode)}`
       };
-    } catch (error) {
-      console.warn("Atlas weather request failed:", error);
+   } catch (error) {
+  console.warn("Atlas weather request failed:", error);
 
-      return {
-        label: `${region} 날씨`,
-        value: "확인 불가"
-      };
-    }
+  return {
+    label: `${region} 날씨`,
+    value: "확인 대기",
+    error: true
+  };
+}
   }
 
   async function getMapPlaces() {

@@ -121,14 +121,14 @@ function extractHotelBooking_(text, parsed) {
     roomType: matchFirst_(text, [
       /Room Type\s*:\s*([^\n\r]+)/i
     ]),
-    checkIn: matchFirst_(text, [
-      /Arrival\s*:\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i,
-      /Check[- ]?in\s*:\s*([^\n\r]+)/i
-    ]),
-    checkOut: matchFirst_(text, [
-      /Departure\s*:\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i,
-      /Check[- ]?out\s*:\s*([^\n\r]+)/i
-    ]),
+    checkIn: normalizeTravelDate_(matchFirst_(text, [
+  /Arrival\s*:\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i,
+  /Check[- ]?in\s*:\s*([^\n\r]+)/i
+])),
+checkOut: normalizeTravelDate_(matchFirst_(text, [
+  /Departure\s*:\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})/i,
+  /Check[- ]?out\s*:\s*([^\n\r]+)/i
+])),
     guestName: matchFirst_(text, [
       /Guest List\s*:\s*([^\n\r]+)/i,
       /Client\s*:\s*([^\n\r]+)/i
@@ -254,48 +254,48 @@ function extractFlightDateTimes_(text) {
     arrivalTime: ""
   };
 
-  const compactDateTime = matchFirstClean_(text, [
-    /\b(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\s+(\d{1,2}:\d{2})\b/,
-    /\b(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2})\b/,
-    /\b(\d{1,2}[./]\d{1,2}[./]\d{4})\s+(\d{1,2}:\d{2})\b/
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map(function(line) {
+      return line.replace(/\s+/g, " ").trim();
+    })
+    .filter(Boolean);
+
+  const joined = lines.join("\n");
+
+  const explicitDeparture = matchFirstClean_(joined, [
+    /Departure(?: Date\/Time| Date Time| Time)?\s*[:\-]?\s*([^\n\r]+)/i,
+    /Depart(?:ure)?\s*[:\-]?\s*([^\n\r]+)/i
   ]);
 
-  if (compactDateTime) {
-    const parts = String(compactDateTime).match(/(.+)\s+(\d{1,2}:\d{2})$/);
-    if (parts) {
-      result.departureDate = normalizeFlightDateText_(parts[1]);
-      result.departureTime = parts[2];
+  const explicitArrival = matchFirstClean_(joined, [
+    /Arrival(?: Date\/Time| Date Time| Time)?\s*[:\-]?\s*([^\n\r]+)/i,
+    /Arrive|Arrival\s*[:\-]?\s*([^\n\r]+)/i
+  ]);
+
+  applyDateTimeCandidate_(result, explicitDeparture, "departure");
+  applyDateTimeCandidate_(result, explicitArrival, "arrival");
+
+  if (!result.departureDate || !result.departureTime || !result.arrivalDate || !result.arrivalTime) {
+    const candidates = extractFlightDateTimeCandidates_(lines);
+
+    if (candidates.length > 0 && (!result.departureDate || !result.departureTime)) {
+      result.departureDate = result.departureDate || candidates[0].date;
+      result.departureTime = result.departureTime || candidates[0].time;
+    }
+
+    if (candidates.length > 1 && (!result.arrivalDate || !result.arrivalTime)) {
+      result.arrivalDate = result.arrivalDate || candidates[1].date;
+      result.arrivalTime = result.arrivalTime || candidates[1].time;
     }
   }
 
-  if (!result.departureDate) {
-    result.departureDate = normalizeFlightDateText_(matchFirstClean_(text, [
-      /Departure Date\s*:\s*([^\n\r]+)/i,
-      /Date\s*:\s*([^\n\r]+)/i
-    ]));
+  if (!result.arrivalDate && result.departureDate && result.arrivalTime) {
+    result.arrivalDate = result.departureDate;
   }
-
-  if (!result.departureTime) {
-    result.departureTime = matchFirstClean_(text, [
-      /Departure Time\s*:\s*(\d{1,2}:\d{2})/i,
-      /Departure Date\/Time\s*:\s*.*?(\d{1,2}:\d{2})/i,
-      /\bDep(?:arture)?\s*(?:Time)?\s*[:\-]?\s*(\d{1,2}:\d{2})\b/i
-    ]);
-  }
-
-  result.arrivalTime = matchFirstClean_(text, [
-    /Arrival Time\s*:\s*(\d{1,2}:\d{2})/i,
-    /Arrival Date\/Time\s*:\s*.*?(\d{1,2}:\d{2})/i,
-    /\bArr(?:ival)?\s*(?:Time)?\s*[:\-]?\s*(\d{1,2}:\d{2})\b/i
-  ]);
-
-  result.arrivalDate = normalizeFlightDateText_(matchFirstClean_(text, [
-    /Arrival Date\s*:\s*([^\n\r]+)/i
-  ]));
 
   return result;
 }
-
 function matchFirstClean_(text, patterns) {
   for (var i = 0; i < patterns.length; i++) {
     var match = String(text || "").match(patterns[i]);
@@ -355,15 +355,99 @@ function getAtlasAllowedAirportCodes_() {
 }
 
 function normalizeFlightDateText_(value) {
-  const text = cleanFlightField_(value);
+  return normalizeTravelDate_(value);
+}
+function extractFlightDateTimeCandidates_(lines) {
+  const candidates = [];
+
+  lines.forEach(function(line) {
+    if (isBadFlightLine_(line)) return;
+
+    const patterns = [
+      /(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})\s+(\d{1,2}:\d{2})/g,
+      /(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2})/g,
+      /(\d{1,2}[./]\d{1,2}[./]\d{4})\s+(\d{1,2}:\d{2})/g,
+      /([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4})\s+(\d{1,2}:\d{2})/g,
+      /(\d{1,2}\s+[A-Za-z]{3,9})\s+(\d{1,2}:\d{2})/g
+    ];
+
+    patterns.forEach(function(pattern) {
+      let match;
+      while ((match = pattern.exec(line)) !== null) {
+        const date = normalizeTravelDate_(match[1]);
+        const time = normalizeTravelTime_(match[2]);
+
+        if (date || time) {
+          candidates.push({
+            date: date,
+            time: time,
+            raw: line
+          });
+        }
+      }
+    });
+  });
+
+  return candidates.filter(function(candidate) {
+    return candidate.time;
+  });
+}
+
+function applyDateTimeCandidate_(result, value, target) {
+  if (!value) return;
+
+  const text = String(value).trim();
+  const time = normalizeTravelTime_(matchFirstClean_(text, [
+    /(\d{1,2}:\d{2})/
+  ]));
+
+  const dateText = text.replace(/\d{1,2}:\d{2}.*/, "").trim();
+  const date = normalizeTravelDate_(dateText);
+
+  if (target === "departure") {
+    if (date) result.departureDate = date;
+    if (time) result.departureTime = time;
+  }
+
+  if (target === "arrival") {
+    if (date) result.arrivalDate = date;
+    if (time) result.arrivalTime = time;
+  }
+}
+
+function normalizeTravelDate_(value) {
+  if (!value) return "";
+
+  const text = String(value)
+    .replace(/\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b,?/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
   if (!text) return "";
+
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return isoMatch[1] + "-" + isoMatch[2] + "-" + isoMatch[3];
+
+  const slashMatch = text.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})/);
+  if (slashMatch) {
+    return slashMatch[3] + "-" + String(slashMatch[2]).padStart(2, "0") + "-" + String(slashMatch[1]).padStart(2, "0");
+  }
 
   const parsed = new Date(text);
   if (!isNaN(parsed.getTime())) {
     return Utilities.formatDate(parsed, "Europe/Istanbul", "yyyy-MM-dd");
   }
 
-  return text;
+  return "";
+}
+
+function normalizeTravelTime_(value) {
+  if (!value) return "";
+
+  const match = String(value).match(/(\d{1,2}):(\d{2})/);
+  if (!match) return "";
+
+  return String(match[1]).padStart(2, "0") + ":" + match[2];
 }
 function extractTourBooking_(text, parsed) {
   return {
