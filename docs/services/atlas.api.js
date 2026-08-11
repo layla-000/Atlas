@@ -276,6 +276,59 @@ window.AtlasAPI = (() => {
     return { success: true, ok: true, timelineEvent: { ...payload, id: data.id, source: "manual_schedule" }, message: "일정을 저장했어요." };
   }
 
+  async function updateSchedule(params = {}) {
+    const tripId = params.tripId || DEFAULT_TRIP_ID();
+    const role = await getRole(tripId);
+    if (role !== "owner") throw new Error("Owner만 일정을 수정할 수 있어요.");
+    if (!params.id) throw new Error("수정할 일정 ID가 없어요.");
+
+    const row = {
+      schedule_type: params.scheduleType || params.type || "etc",
+      title: params.title || "일정",
+      start_at: params.startAt || null,
+      end_at: params.endAt || null,
+      location: params.location || "",
+      details: params.details || {},
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await db()
+      .from("atlas_schedule")
+      .update(row)
+      .eq("id", params.id)
+      .eq("trip_id", tripId)
+      .select()
+      .single();
+    if (error) throw error;
+
+    const { error: privateError } = await db()
+      .from("atlas_schedule_private")
+      .upsert({
+        schedule_id: params.id,
+        confirmation_number: params.confirmationNumber || "",
+        notes: params.notes || ""
+      }, { onConflict: "schedule_id" });
+    if (privateError) throw privateError;
+
+    return { success: true, ok: true, schedule: data, message: "일정을 수정했어요." };
+  }
+
+  async function deleteSchedule(params = {}) {
+    const tripId = params.tripId || DEFAULT_TRIP_ID();
+    const role = await getRole(tripId);
+    if (role !== "owner") throw new Error("Owner만 일정을 삭제할 수 있어요.");
+    if (!params.id) throw new Error("삭제할 일정 ID가 없어요.");
+
+    const { error } = await db()
+      .from("atlas_schedule")
+      .delete()
+      .eq("id", params.id)
+      .eq("trip_id", tripId);
+    if (error) throw error;
+
+    return { success: true, ok: true, message: "일정을 삭제했어요." };
+  }
+
   async function updateScheduleNote(params = {}) {
     const role = await getRole();
     if (role !== "owner") throw new Error("Owner만 메모를 수정할 수 있어요.");
@@ -408,7 +461,7 @@ window.AtlasAPI = (() => {
   return {
     getCurrentTrip, getRole, getBrief, getMemory, getTravelStatus, getCurrentWeather,
     getTripState, updateTripState, getMapPlaces, saveManualMapPlace, removeManualMapPlace,
-    getFullSchedule, createSchedule, updateScheduleNote, updateScheduleTime,
+    getFullSchedule, createSchedule, updateSchedule, deleteSchedule, updateScheduleNote, updateScheduleTime,
     getDashboardNote, saveDashboardNote,
     getPackingItems, addPackingItem, updatePackingItem, deletePackingItem,
     getExchangeRateToKrw, getExpenses, addExpense, deleteExpense
