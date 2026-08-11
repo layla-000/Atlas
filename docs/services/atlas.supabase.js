@@ -33,11 +33,10 @@ window.AtlasSupabase = (() => {
     return data.user || null;
   }
 
-  async function signInWithEmail(email) {
-    const redirectTo = new URL("index.html", window.location.href).href;
-    const { data, error } = await getClient().auth.signInWithOtp({
+  async function signInWithPassword(email, password) {
+    const { data, error } = await getClient().auth.signInWithPassword({
       email: String(email || "").trim(),
-      options: { emailRedirectTo: redirectTo }
+      password: String(password || "")
     });
     if (error) throw error;
     return data;
@@ -52,5 +51,5 @@ window.AtlasSupabase = (() => {
     return getClient().auth.onAuthStateChange(callback);
   }
 
-  return { getClient, getSession, getUser, signInWithEmail, signOut, onAuthStateChange };
+  return { getClient, getSession, getUser, signInWithPassword, signOut, onAuthStateChange };
 })();

@@ -47,9 +47,10 @@ window.AtlasAuth = (() => {
     gate.innerHTML = `
       <form class="atlas-auth-card" id="atlas-auth-form">
         <h1>ATLAS</h1>
-        <p>Layla Hub에 등록된 이메일로 로그인해요. 이메일로 로그인 링크를 보내드려요.</p>
-        <input id="atlas-auth-email" type="email" autocomplete="email" placeholder="email@example.com" required>
-        <button type="submit">로그인 링크 받기</button>
+        <p>Layla Hub에 등록된 계정으로 로그인해요.</p>
+        <input id="atlas-auth-email" type="email" autocomplete="username" placeholder="이메일" required>
+        <input id="atlas-auth-password" type="password" autocomplete="current-password" placeholder="비밀번호" required>
+        <button type="submit">로그인</button>
         <div class="atlas-auth-message" id="atlas-auth-message"></div>
       </form>`;
     document.body.appendChild(gate);
@@ -57,15 +58,23 @@ window.AtlasAuth = (() => {
     gate.querySelector("form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = gate.querySelector("#atlas-auth-email").value;
+      const password = gate.querySelector("#atlas-auth-password").value;
       const button = gate.querySelector("button");
       const message = gate.querySelector("#atlas-auth-message");
       button.disabled = true;
-      message.textContent = "로그인 링크를 보내는 중이에요…";
+      message.textContent = "로그인하는 중이에요…";
       try {
-        await AtlasSupabase.signInWithEmail(email);
-        message.textContent = "메일을 확인해 주세요. 링크를 누르면 Atlas로 돌아와요.";
+        await AtlasSupabase.signInWithPassword(email, password);
+        message.textContent = "로그인했어요.";
       } catch (error) {
-        message.textContent = error?.message || "로그인 링크를 보내지 못했어요.";
+        const raw = String(error?.message || "").toLowerCase();
+        if (raw.includes("invalid login credentials")) {
+          message.textContent = "이메일 또는 비밀번호가 맞지 않아요.";
+        } else if (raw.includes("email not confirmed")) {
+          message.textContent = "이메일 인증이 완료되지 않은 계정이에요.";
+        } else {
+          message.textContent = error?.message || "로그인하지 못했어요.";
+        }
       } finally {
         button.disabled = false;
       }
