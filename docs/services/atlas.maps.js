@@ -148,30 +148,157 @@ const AtlasMaps = (() => {
     return STATE.map;
   }
 
-  function initSearchControl() {
+  async function initSearchControl() {
     if (!STATE.map || !window.google?.maps) return;
 
     const wrap = document.createElement("div");
     wrap.className = "atlas-map-search-wrap";
-
-    const input = document.createElement("input");
-    input.id = "atlas-map-search-input";
-    input.className = "atlas-map-search-input";
-    input.type = "search";
-    input.placeholder = "장소 검색";
-    input.autocomplete = "off";
-    input.setAttribute("aria-label", "장소 검색");
+    wrap.style.display = "flex";
+    wrap.style.alignItems = "center";
+    wrap.style.gap = "6px";
+    wrap.style.width = "min(360px, calc(100vw - 28px))";
 
     const button = document.createElement("button");
     button.type = "button";
     button.className = "atlas-map-search-button";
     button.textContent = "검색";
 
-    wrap.append(input, button);
+    let autocomplete = null;
+
+    try {
+      const { PlaceAutocompleteElement } =
+        await google.maps.importLibrary("places");
+
+      autocomplete = new PlaceAutocompleteElement({
+        placeholder: "장소 검색"
+      });
+
+      autocomplete.id = "atlas-map-search-autocomplete";
+      autocomplete.style.display = "block";
+      autocomplete.style.flex = "1 1 auto";
+      autocomplete.style.minWidth = "0";
+      autocomplete.style.width = "100%";
+      autocomplete.setAttribute("aria-label", "장소 검색");
+
+      // 현재 보고 있는 지도 주변 결과를 우선합니다.
+      const center = STATE.map.getCenter();
+      if (center) {
+        autocomplete.locationBias = {
+          center: {
+            lat: center.lat(),
+            lng: center.lng()
+          },
+          radius: 50000
+        };
+      }
+
+      STATE.map.addListener("idle", () => {
+        const currentCenter = STATE.map.getCenter();
+        if (!currentCenter || !autocomplete) return;
+
+        autocomplete.locationBias = {
+          center: {
+            lat: currentCenter.lat(),
+            lng: currentCenter.lng()
+          },
+          radius: 50000
+        };
+      });
+
+      autocomplete.addEventListener("gmp-select", async (event) => {
+        try {
+          const placePrediction = event?.placePrediction;
+          if (!placePrediction) return;
+
+          const place = placePrediction.toPlace();
+
+          await place.fetchFields({
+            fields: [
+              "id",
+              "displayName",
+              "formattedAddress",
+              "location",
+              "viewport",
+              "types"
+            ]
+          });
+
+          if (!place.location) {
+            throw new Error("선택한 장소의 위치 정보를 가져오지 못했어요.");
+          }
+
+          const title =
+            typeof place.displayName === "string"
+              ? place.displayName
+              : place.displayName?.text ||
+                place.formattedAddress ||
+                "선택한 장소";
+
+          const pending = {
+            id: makeTemporaryId(),
+            type: "manual_place",
+            category: inferCategory(place.types || []),
+            title,
+            address: place.formattedAddress || title,
+            query: place.formattedAddress || title,
+            source: "Google Places 자동완성",
+            lat: place.location.lat(),
+            lng: place.location.lng(),
+            placeId: place.id || ""
+          };
+
+          showPendingPlaceInfoWindow(pending);
+
+          if (place.viewport) {
+            STATE.map.fitBounds(place.viewport);
+          } else {
+            STATE.map.panTo({
+              lat: pending.lat,
+              lng: pending.lng
+            });
+            STATE.map.setZoom(CONFIG.focusedZoom);
+          }
+
+          autocomplete.value = "";
+        } catch (error) {
+          console.error("Atlas autocomplete selection failed:", error);
+          alert(error?.message || "선택한 장소를 불러오지 못했어요.");
+        }
+      });
+
+      autocomplete.addEventListener("gmp-error", (event) => {
+        console.error("Atlas Places autocomplete error:", event);
+      });
+
+      wrap.append(autocomplete, button);
+    } catch (error) {
+      // Places (New)가 로드되지 않는 환경에서도 지도 검색 자체는 계속 쓸 수 있어요.
+      console.warn("Places autocomplete unavailable; using Geocoder fallback.", error);
+
+      const input = document.createElement("input");
+      input.id = "atlas-map-search-input";
+      input.className = "atlas-map-search-input";
+      input.type = "search";
+      input.placeholder = "장소 검색";
+      input.autocomplete = "off";
+      input.setAttribute("aria-label", "장소 검색");
+      input.style.flex = "1 1 auto";
+      input.style.minWidth = "0";
+
+      input.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        void runFallbackSearch(input.value);
+      });
+
+      wrap.append(input, button);
+      autocomplete = input;
+    }
+
     STATE.map.controls[google.maps.ControlPosition.TOP_LEFT].push(wrap);
 
-    async function search() {
-      const query = input.value.trim();
+    async function runFallbackSearch(rawQuery) {
+      const query = String(rawQuery || "").trim();
       if (!query || !STATE.geocoder) return;
 
       button.disabled = true;
@@ -185,11 +312,19 @@ const AtlasMaps = (() => {
           throw new Error("검색 결과를 찾지 못했어요.");
         }
 
-        const pending = placeFromGeocoderResult(result, query, "Google Maps 검색");
+        const pending =
+          placeFromGeocoderResult(result, query, "Google Maps 검색");
+
         showPendingPlaceInfoWindow(pending);
-        STATE.map.panTo({ lat: pending.lat, lng: pending.lng });
+        STATE.map.panTo({
+          lat: pending.lat,
+          lng: pending.lng
+        });
         STATE.map.setZoom(CONFIG.focusedZoom);
-        input.value = "";
+
+        if (autocomplete && "value" in autocomplete) {
+          autocomplete.value = "";
+        }
       } catch (error) {
         console.error("Atlas map search failed:", error);
         alert(error?.message || "장소 검색에 실패했어요.");
@@ -199,11 +334,12 @@ const AtlasMaps = (() => {
       }
     }
 
-    button.addEventListener("click", () => void search());
-    input.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter") return;
-      event.preventDefault();
-      void search();
+    button.addEventListener("click", () => {
+      const query =
+        autocomplete && "value" in autocomplete
+          ? autocomplete.value
+          : "";
+      void runFallbackSearch(query);
     });
   }
 
