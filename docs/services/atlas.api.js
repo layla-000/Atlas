@@ -401,18 +401,46 @@ window.AtlasAPI = (() => {
 
   async function getExchangeRateToKrw(currency) {
     const code = String(currency || "KRW").trim().toUpperCase();
-    if (code === "KRW") return { rate: 1, source: "KRW", date: localDateKey(new Date()) };
-    const response = await fetch("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", { cache: "no-store" });
-    if (!response.ok) throw new Error(`ECB 환율 조회 실패 (${response.status})`);
-    const xml = await response.text();
-    const doc = new DOMParser().parseFromString(xml, "application/xml");
-    const cubeNodes = [...doc.querySelectorAll("Cube[currency][rate]")];
-    const rates = new Map(cubeNodes.map((node) => [node.getAttribute("currency"), Number(node.getAttribute("rate"))]));
-    const krwPerEur = rates.get("KRW");
-    const currencyPerEur = rates.get(code);
-    if (!krwPerEur || !currencyPerEur) throw new Error(`${code}는 ECB 기준환율에서 찾지 못했어요.`);
-    const date = doc.querySelector("Cube[time]")?.getAttribute("time") || localDateKey(new Date());
-    return { rate: krwPerEur / currencyPerEur, source: "ECB reference rate", date };
+
+    if (code === "KRW") {
+      return {
+        currency: "KRW",
+        rate: 1,
+        date: new Date().toISOString().slice(0, 10),
+        source: "KRW"
+      };
+    }
+
+    const supported = new Set([
+      "USD", "EUR", "TRY", "JPY", "CNY", "HKD", "TWD",
+      "GBP", "CAD", "AUD", "THB", "VND", "INR"
+    ]);
+
+    if (!supported.has(code)) {
+      throw new Error(`지원하지 않는 통화예요: ${code}`);
+    }
+
+    const response = await fetch(
+      `https://api.frankfurter.dev/v2/rate/${encodeURIComponent(code)}/KRW`
+    );
+
+    if (!response.ok) {
+      throw new Error(`환율 조회 실패 (${response.status})`);
+    }
+
+    const data = await response.json();
+    const rate = Number(data?.rate);
+
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error(`${code} → KRW 환율을 가져오지 못했어요.`);
+    }
+
+    return {
+      currency: code,
+      rate,
+      date: data.date || "",
+      source: "Frankfurter"
+    };
   }
 
   async function getExpenses(tripId = DEFAULT_TRIP_ID()) {

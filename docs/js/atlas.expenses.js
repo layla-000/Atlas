@@ -1,3 +1,8 @@
+const ATLAS_EXPENSE_CURRENCIES = [
+  "KRW", "USD", "EUR", "TRY", "JPY", "CNY", "HKD",
+  "TWD", "GBP", "CAD", "AUD", "THB", "VND", "INR"
+];
+
 const AtlasExpenses = (() => {
   const TRIP_ID = () => window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
   let items = [];
@@ -61,3 +66,20 @@ const AtlasExpenses = (() => {
   return { initialize, remove };
 })();
 window.addEventListener("DOMContentLoaded", AtlasExpenses.initialize);
+
+function atlasPopulateExpenseCurrencySelect() {
+  const select =
+    document.getElementById("expense-currency") ||
+    document.querySelector('[name="currency"]');
+
+  if (!select || select.tagName !== "SELECT") return;
+
+  const current = select.value || "TRY";
+  select.innerHTML = ATLAS_EXPENSE_CURRENCIES
+    .map((code) => `<option value="${code}">${code}</option>`)
+    .join("");
+
+  select.value = ATLAS_EXPENSE_CURRENCIES.includes(current) ? current : "TRY";
+}
+
+window.addEventListener("DOMContentLoaded", atlasPopulateExpenseCurrencySelect);
