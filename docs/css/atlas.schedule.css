@@ -361,23 +361,3 @@ body {
   min-width: 100%;
 }
 }
-/* Owner schedule edit/delete */
-.event-actions { display:inline-flex; gap:6px; margin-left:8px; vertical-align:middle; }
-.event-action-btn { border:0; border-radius:999px; padding:5px 10px; background:rgba(79,96,255,.13); color:#8290ff; font:inherit; font-size:12px; font-weight:800; cursor:pointer; }
-.event-action-btn.is-delete { background:rgba(190,58,58,.15); color:#ef8d8d; }
-.schedule-modal-backdrop { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; padding:18px; background:rgba(0,0,0,.72); backdrop-filter:blur(8px); }
-.schedule-modal { width:min(560px,100%); max-height:90vh; overflow:auto; padding:24px; border:1px solid rgba(255,255,255,.12); border-radius:24px; background:#17191f; box-shadow:0 24px 80px rgba(0,0,0,.45); color:#fff; }
-.schedule-modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:20px; }
-.schedule-modal-head h2 { margin:4px 0 0; font-size:24px; }
-.schedule-modal-close { border:0; background:transparent; color:#fff; font-size:32px; line-height:1; cursor:pointer; }
-.schedule-modal form { display:grid; gap:14px; }
-.schedule-modal label { display:grid; gap:7px; color:rgba(255,255,255,.75); font-size:13px; font-weight:750; }
-.schedule-modal input,.schedule-modal select,.schedule-modal textarea { width:100%; box-sizing:border-box; border:1px solid rgba(255,255,255,.13); border-radius:12px; padding:11px 12px; background:rgba(255,255,255,.06); color:#fff; font:inherit; }
-.schedule-modal select option { color:#111; }
-.schedule-modal textarea { resize:vertical; }
-.schedule-modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.schedule-modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:8px; }
-.schedule-primary-btn,.schedule-secondary-btn { border:0; border-radius:12px; padding:11px 16px; font:inherit; font-weight:850; cursor:pointer; }
-.schedule-primary-btn { background:#4f60ff; color:#fff; }
-.schedule-secondary-btn { background:rgba(255,255,255,.08); color:#fff; }
-@media (max-width:720px) { .event-actions { display:flex; margin:8px 0 0; } .schedule-modal { padding:20px; border-radius:20px; } .schedule-modal-grid { grid-template-columns:1fr; } }

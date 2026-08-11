@@ -98,7 +98,6 @@ async function fetchScheduleFromAtlasMemory() {
       notes: getEventNotes(event),
       route: event.route || event.summary || "",
       source: event.source || "",
-      details: event.details || {},
       startAt: start || "",
       endAt: end || "",
       isMultiDay: dates.length > 1,
@@ -209,7 +208,7 @@ async function fetchScheduleFromAtlasMemory() {
           <div class="event-title">${escapeHtml(event.title)}</div>
           <div class="event-place">
             <span>${escapeHtml(formatEventPlaceLine(event))}</span>
-            ${STATE.role === "owner" ? renderOwnerButtons(event) : ""}
+            ${STATE.role === "owner" && event.source === "manual_schedule" ? renderManualEditButtons(event) : ""}
           </div>
           <span class="event-tag">${escapeHtml(labelForType(event.type))}</span>
         </div>
@@ -217,12 +216,22 @@ async function fetchScheduleFromAtlasMemory() {
     `;
   }
 
-  function renderOwnerButtons(event) {
+  function renderManualEditButtons(event) {
     return `
-      <span class="event-actions">
-        <button type="button" class="event-action-btn" onclick="AtlasSchedule.openEdit('${escapeJs(event.id)}')">수정</button>
-        <button type="button" class="event-action-btn is-delete" onclick="AtlasSchedule.remove('${escapeJs(event.id)}')">삭제</button>
-      </span>
+      <button
+        type="button"
+        class="event-note-edit"
+        style="margin-left: 8px; border: 0; border-radius: 999px; padding: 4px 9px; background: rgba(79, 96, 255, 0.10); color: #4f60ff; font: inherit; font-size: 0.8em; cursor: pointer;"
+        onclick="AtlasSchedule.editTime('${escapeJs(event.id)}')"
+        aria-label="시간 수정"
+      >시간</button>
+      <button
+        type="button"
+        class="event-note-edit"
+        style="margin-left: 6px; border: 0; border-radius: 999px; padding: 4px 9px; background: rgba(79, 96, 255, 0.10); color: #4f60ff; font: inherit; font-size: 0.8em; cursor: pointer;"
+        onclick="AtlasSchedule.editNote('${escapeJs(event.id)}')"
+        aria-label="노트 수정"
+      >노트</button>
     `;
   }
 
@@ -269,102 +278,6 @@ async function fetchScheduleFromAtlasMemory() {
   function goToDay(index) {
     STATE.currentIndex = Math.max(0, Math.min(index, STATE.days.length - 1));
     render();
-  }
-
-  function openEdit(eventId) {
-    const event = findEventById(eventId);
-    if (!event || STATE.role !== "owner") return;
-    closeEdit();
-
-    const modal = document.createElement("div");
-    modal.id = "schedule-edit-modal";
-    modal.className = "schedule-modal-backdrop";
-    modal.innerHTML = `
-      <section class="schedule-modal" role="dialog" aria-modal="true" aria-labelledby="schedule-edit-title">
-        <div class="schedule-modal-head">
-          <div><div class="brand">ATLAS</div><h2 id="schedule-edit-title">일정 수정</h2></div>
-          <button type="button" class="schedule-modal-close" onclick="AtlasSchedule.closeEdit()" aria-label="닫기">×</button>
-        </div>
-        <form id="schedule-edit-form" onsubmit="AtlasSchedule.saveEdit(event)">
-          <input type="hidden" name="id" value="${escapeHtml(event.id)}">
-          <label>종류
-            <select name="scheduleType">
-              ${["flight","hotel","train","bus","activity","food","etc"].map(type => `<option value="${type}" ${type === String(event.type).toLowerCase() ? "selected" : ""}>${labelForType(type)}</option>`).join("")}
-            </select>
-          </label>
-          <label>제목<input name="title" required value="${escapeHtml(event.title)}"></label>
-          <div class="schedule-modal-grid">
-            <label>시작<input name="startAt" type="datetime-local" required value="${escapeHtml(toDateTimeLocal(event.startAt))}"></label>
-            <label>종료<input name="endAt" type="datetime-local" value="${escapeHtml(toDateTimeLocal(event.endAt))}"></label>
-          </div>
-          <label>장소<input name="location" value="${escapeHtml(event.location || "")}"></label>
-          <label>예약번호<input name="confirmationNumber" value="${escapeHtml(event.confirmationNumber || "")}"></label>
-          <label>메모<textarea name="notes" rows="4">${escapeHtml(event.notes || "")}</textarea></label>
-          <div class="schedule-modal-actions">
-            <button type="button" class="schedule-secondary-btn" onclick="AtlasSchedule.closeEdit()">취소</button>
-            <button type="submit" class="schedule-primary-btn">저장</button>
-          </div>
-        </form>
-      </section>`;
-    modal.addEventListener("click", (e) => { if (e.target === modal) closeEdit(); });
-    document.body.appendChild(modal);
-  }
-
-  function closeEdit() {
-    document.getElementById("schedule-edit-modal")?.remove();
-  }
-
-  async function saveEdit(domEvent) {
-    domEvent.preventDefault();
-    if (STATE.role !== "owner") return;
-    const form = domEvent.currentTarget;
-    const data = Object.fromEntries(new FormData(form).entries());
-    const original = findEventById(data.id);
-    if (!original) return alert("수정할 일정을 찾지 못했어요.");
-
-    const submit = form.querySelector('[type="submit"]');
-    submit.disabled = true;
-    submit.textContent = "저장 중…";
-    try {
-      await AtlasAPI.updateSchedule({
-        id: data.id,
-        tripId: TRIP_ID,
-        scheduleType: data.scheduleType,
-        title: data.title.trim(),
-        startAt: data.startAt,
-        endAt: data.endAt,
-        location: data.location.trim(),
-        confirmationNumber: data.confirmationNumber.trim(),
-        notes: data.notes.trim(),
-        details: original.details || {}
-      });
-      closeEdit();
-      await reloadSchedule();
-    } catch (error) {
-      console.error("Atlas schedule update failed:", error);
-      alert(error.message || "일정 수정에 실패했어요.");
-      submit.disabled = false;
-      submit.textContent = "저장";
-    }
-  }
-
-  async function remove(eventId) {
-    const event = findEventById(eventId);
-    if (!event || STATE.role !== "owner") return;
-    if (!confirm(`“${event.title}” 일정을 삭제할까요?`)) return;
-    try {
-      await AtlasAPI.deleteSchedule({ id: event.id, tripId: TRIP_ID });
-      closeEdit();
-      await reloadSchedule();
-    } catch (error) {
-      console.error("Atlas schedule delete failed:", error);
-      alert(error.message || "일정 삭제에 실패했어요.");
-    }
-  }
-
-  function toDateTimeLocal(value) {
-    if (!value) return "";
-    return String(value).replace(" ", "T").slice(0, 16);
   }
 
   async function editNote(eventId) {
@@ -611,11 +524,7 @@ function toDateKey(date) {
     initialize,
     goToDay,
     editNote,
-    editTime,
-    openEdit,
-    closeEdit,
-    saveEdit,
-    remove
+    editTime
   };
 })();
 

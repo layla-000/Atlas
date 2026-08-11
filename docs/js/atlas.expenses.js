@@ -1,13 +1,6 @@
-const ATLAS_EXPENSE_CURRENCIES = [
-  "KRW", "USD", "EUR", "TRY", "JPY", "CNY", "HKD",
-  "TWD", "GBP", "CAD", "AUD", "THB", "VND", "INR"
-];
-
 const AtlasExpenses = (() => {
   const TRIP_ID = () => window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
   let items = [];
-  let categoryFilter = "all";
-  let paymentFilter = "all";
 
   async function initialize() {
     await AtlasAuth.requireSession();
@@ -19,7 +12,6 @@ const AtlasExpenses = (() => {
     const dateInput = document.querySelector('[name="spentAt"]');
     if (dateInput) dateInput.value = new Date().toISOString().slice(0,10);
     bind();
-    bindFilters();
     await reload();
   }
 
@@ -57,88 +49,11 @@ const AtlasExpenses = (() => {
   function render() {
     const total = items.reduce((sum, item) => sum + Number(item.krw_amount || 0), 0);
     document.getElementById("expense-total").textContent = `${Math.round(total).toLocaleString("ko-KR")}원`;
-
-    const visibleItems = items.filter((item) => {
-      const categoryOk = categoryFilter === "all" || String(item.category || "기타") === categoryFilter;
-      const method = normalizedPaymentMethod(item.payment_method);
-      const paymentOk = paymentFilter === "all" || method === paymentFilter;
-      return categoryOk && paymentOk;
-    });
-
-    const filteredTotal = visibleItems.reduce((sum, item) => sum + Number(item.krw_amount || 0), 0);
-    const summary = document.getElementById("expense-filter-summary");
-    if (summary) {
-      summary.textContent = (categoryFilter === "all" && paymentFilter === "all")
-        ? `전체 ${items.length}건`
-        : `${visibleItems.length}건 · ${Math.round(filteredTotal).toLocaleString("ko-KR")}원`;
-    }
-
-    document.getElementById("expense-list").innerHTML = visibleItems.length ? visibleItems.map((row) => `
+    document.getElementById("expense-list").innerHTML = items.length ? items.map((row) => `
       <div class="expense-row">
-        <div><strong>${escapeHtml(row.merchant || row.category || "지출")}</strong><span>${escapeHtml(row.spent_at || "")} · ${escapeHtml(row.category || "기타")} · ${escapeHtml(paymentMethodLabel(row.payment_method))}</span>${row.memo ? `<small>${escapeHtml(row.memo)}</small>` : ""}</div>
+        <div><strong>${escapeHtml(row.merchant || row.category || "지출")}</strong><span>${escapeHtml(row.spent_at || "")} · ${escapeHtml(row.category || "기타")}</span>${row.memo ? `<small>${escapeHtml(row.memo)}</small>` : ""}</div>
         <div class="expense-amount"><strong>${Number(row.krw_amount || 0).toLocaleString("ko-KR")}원</strong><span>${Number(row.original_amount || 0).toLocaleString()} ${escapeHtml(row.currency || "KRW")}</span><button onclick="AtlasExpenses.remove('${row.id}')">삭제</button></div>
-      </div>`).join("") : '<div class="utility-empty">조건에 맞는 지출 내역이 없어요.</div>';
-  }
-
-  function bindFilters() {
-    const list = document.getElementById("expense-list");
-    if (!list || document.getElementById("expense-filter-bar")) return;
-
-    const bar = document.createElement("div");
-    bar.id = "expense-filter-bar";
-    bar.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px;";
-
-    const category = document.createElement("select");
-    category.id = "expense-category-filter";
-    category.setAttribute("aria-label", "카테고리 필터");
-    category.innerHTML = `
-      <option value="all">전체 카테고리</option>
-      <option value="교통">교통</option>
-      <option value="숙박">숙박</option>
-      <option value="식비">식비</option>
-      <option value="쇼핑">쇼핑</option>
-      <option value="관광">관광</option>
-      <option value="기타">기타</option>
-    `;
-
-    const payment = document.createElement("select");
-    payment.id = "expense-payment-filter";
-    payment.setAttribute("aria-label", "결제수단 필터");
-    payment.innerHTML = `
-      <option value="all">전체 결제수단</option>
-      <option value="card">카드</option>
-      <option value="cash">현금</option>
-    `;
-
-    const summary = document.createElement("span");
-    summary.id = "expense-filter-summary";
-    summary.style.cssText = "opacity:.72;font-size:.9rem;";
-
-    category.addEventListener("change", () => {
-      categoryFilter = category.value;
-      render();
-    });
-    payment.addEventListener("change", () => {
-      paymentFilter = payment.value;
-      render();
-    });
-
-    bar.append(category, payment, summary);
-    list.parentNode.insertBefore(bar, list);
-  }
-
-  function normalizedPaymentMethod(value) {
-    const method = String(value || "").trim().toLowerCase();
-    if (["card", "credit", "credit_card", "debit", "debit_card", "카드"].includes(method)) return "card";
-    if (["cash", "현금"].includes(method)) return "cash";
-    return "other";
-  }
-
-  function paymentMethodLabel(value) {
-    const method = String(value || "").trim().toLowerCase();
-    if (["card", "credit", "credit_card", "debit", "debit_card", "카드"].includes(method)) return "카드";
-    if (["cash", "현금"].includes(method)) return "현금";
-    return value || "결제수단 미지정";
+      </div>`).join("") : '<div class="utility-empty">아직 지출 내역이 없어요.</div>';
   }
 
   async function remove(id) { if (!confirm("이 지출을 삭제할까요?")) return; await AtlasAPI.deleteExpense(id); await reload(); }
@@ -146,20 +61,3 @@ const AtlasExpenses = (() => {
   return { initialize, remove };
 })();
 window.addEventListener("DOMContentLoaded", AtlasExpenses.initialize);
-
-function atlasPopulateExpenseCurrencySelect() {
-  const select =
-    document.getElementById("expense-currency") ||
-    document.querySelector('[name="currency"]');
-
-  if (!select || select.tagName !== "SELECT") return;
-
-  const current = select.value || "TRY";
-  select.innerHTML = ATLAS_EXPENSE_CURRENCIES
-    .map((code) => `<option value="${code}">${code}</option>`)
-    .join("");
-
-  select.value = ATLAS_EXPENSE_CURRENCIES.includes(current) ? current : "TRY";
-}
-
-window.addEventListener("DOMContentLoaded", atlasPopulateExpenseCurrencySelect);
