@@ -56,9 +56,16 @@ const AtlasExpenses = (() => {
     document.getElementById("expense-total").textContent = `${Math.round(total).toLocaleString("ko-KR")}원`;
     document.getElementById("expense-list").innerHTML = items.length ? items.map((row) => `
       <div class="expense-row">
-        <div><strong>${escapeHtml(row.merchant || row.category || "지출")}</strong><span>${escapeHtml(row.spent_at || "")} · ${escapeHtml(row.category || "기타")}</span>${row.memo ? `<small>${escapeHtml(row.memo)}</small>` : ""}</div>
+        <div><strong>${escapeHtml(row.merchant || row.category || "지출")}</strong><span>${escapeHtml(row.spent_at || "")} · ${escapeHtml(row.category || "기타")} · ${escapeHtml(paymentMethodLabel(row.payment_method))}</span>${row.memo ? `<small>${escapeHtml(row.memo)}</small>` : ""}</div>
         <div class="expense-amount"><strong>${Number(row.krw_amount || 0).toLocaleString("ko-KR")}원</strong><span>${Number(row.original_amount || 0).toLocaleString()} ${escapeHtml(row.currency || "KRW")}</span><button onclick="AtlasExpenses.remove('${row.id}')">삭제</button></div>
       </div>`).join("") : '<div class="utility-empty">아직 지출 내역이 없어요.</div>';
+  }
+
+  function paymentMethodLabel(value) {
+    const method = String(value || "").trim().toLowerCase();
+    if (["card", "credit", "credit_card", "debit", "debit_card", "카드"].includes(method)) return "카드";
+    if (["cash", "현금"].includes(method)) return "현금";
+    return value || "결제수단 미지정";
   }
 
   async function remove(id) { if (!confirm("이 지출을 삭제할까요?")) return; await AtlasAPI.deleteExpense(id); await reload(); }
