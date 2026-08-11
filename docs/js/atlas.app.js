@@ -467,11 +467,11 @@ async function refreshWeatherStatusItem() {
 
   if (STATE.role === "owner") {
     cards.push(
-      renderQuickActionImageCard({ label: "Boarding Pass", url: links.boarding_pass || "", imageSrc: "assets/images/quick-actions/bp.png", imageAlt: "Boarding Pass" }),
-      renderQuickActionImageCard({ label: "Hotel", url: links.hotel || "", imageSrc: "assets/images/quick-actions/hotel.png", imageAlt: "Hotel" }),
+      `<a class="atlas-action-card atlas-action-card-text" href="expenses.html" aria-label="Expenses">₩<span>Expenses</span></a>`,
       renderQuickActionImageCard({ label: "Documents", url: links.documents || "", imageSrc: "assets/images/quick-actions/documents.png", imageAlt: "Documents" }),
       renderQuickActionImageCard({ label: "Packing", url: "packing.html", imageSrc: "assets/images/quick-actions/packing.png", imageAlt: "Packing" }),
-      `<a class="atlas-action-card atlas-action-card-text" href="expenses.html" aria-label="Expenses">₩<span>Expenses</span></a>`
+      renderQuickActionImageCard({ label: "Boarding Pass", url: links.boarding_pass || "", imageSrc: "assets/images/quick-actions/bp.png", imageAlt: "Boarding Pass" }),
+      renderQuickActionImageCard({ label: "Hotel", url: links.hotel || "", imageSrc: "assets/images/quick-actions/hotel.png", imageAlt: "Hotel" })
     );
   }
 

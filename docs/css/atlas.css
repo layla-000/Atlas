@@ -434,17 +434,13 @@ button {
 
 .atlas-actions-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
 }
 
 @media (max-width: 720px) {
   .atlas-actions-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .atlas-actions-grid .atlas-action-card:nth-child(5) {
-    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -516,7 +512,7 @@ button {
 /* Tablet */
 @media (max-width: 960px) {
     .atlas-actions-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 14px;
     }
 
@@ -540,7 +536,7 @@ button {
     }
 
     .atlas-actions-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
     }
 
@@ -900,7 +896,7 @@ button {
 
 .atlas-schedule-type-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -952,7 +948,7 @@ button {
 
 .atlas-form-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
