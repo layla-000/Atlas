@@ -18,12 +18,15 @@ const DATE_KEYS = [
 
   const STATE = {
     days: [],
+    role: "none",
     currentIndex: 0,
     touchStartX: 0,
     touchEndX: 0
   };
 
   async function initialize() {
+    await AtlasAuth.requireSession();
+    STATE.role = await AtlasAPI.getRole(TRIP_ID);
     STATE.days = buildEmptyDays();
     render();
 
@@ -205,7 +208,7 @@ async function fetchScheduleFromAtlasMemory() {
           <div class="event-title">${escapeHtml(event.title)}</div>
           <div class="event-place">
             <span>${escapeHtml(formatEventPlaceLine(event))}</span>
-            ${event.source === "manual_schedule" ? renderManualEditButtons(event) : ""}
+            ${STATE.role === "owner" && event.source === "manual_schedule" ? renderManualEditButtons(event) : ""}
           </div>
           <span class="event-tag">${escapeHtml(labelForType(event.type))}</span>
         </div>

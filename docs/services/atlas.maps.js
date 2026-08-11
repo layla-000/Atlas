@@ -27,6 +27,7 @@ const STATE = {
   }
 
   function isKoreaPlace(place) {
+    if (place?.id === "atlas-current-location" || place?.type === "shared_current") return false;
     const text = [
       place?.id, place?.title, place?.name, place?.query,
       place?.address, place?.city, place?.country, place?.airportCode
@@ -57,29 +58,10 @@ const STATE = {
   }
 
 
-  function readLocalManualPlaces_() {
-    try {
-      const raw = window.localStorage?.getItem(CONFIG.localStorageKey);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter(hasValidLatLng) : [];
-    } catch (error) {
-      console.warn("Failed to read local Atlas map markers", error);
-      return [];
-    }
-  }
+  function readLocalManualPlaces_() { return []; }
 
-  function writeLocalManualPlaces_(places) {
-    try {
-      const manualPlaces = (places || [])
-        .filter((place) => String(place?.type || "").startsWith("manual"))
-        .filter(hasValidLatLng)
-        .filter((place) => !isKoreaPlace(place));
-
-      window.localStorage?.setItem(CONFIG.localStorageKey, JSON.stringify(manualPlaces));
-    } catch (error) {
-      console.warn("Failed to save local Atlas map markers", error);
-    }
+  function writeLocalManualPlaces_() {
+    // Supabase is the single source of truth. No marker data is persisted locally.
   }
 
   function mergePlaces_(primaryPlaces, fallbackPlaces) {
@@ -107,33 +89,7 @@ const STATE = {
   }
 
   async function syncLocalManualPlacesToBackend_() {
-    if (!window.AtlasAPI?.saveManualMapPlace) return;
-
-    const localPlaces = readLocalManualPlaces_()
-      .filter((place) => String(place?.type || "").startsWith("manual"))
-      .filter((place) => !isKoreaPlace(place));
-
-    if (localPlaces.length === 0) return;
-
-    const remoteKeys = STATE.remotePlaceKeys || new Set();
-    const unsynced = localPlaces.filter((place) => !remoteKeys.has(buildPlaceDedupKey_(place)));
-
-    if (unsynced.length === 0) return;
-
-    for (const place of unsynced) {
-      try {
-        const result = await AtlasAPI.saveManualMapPlace(place);
-        if (result?.place) {
-          STATE.remotePlaceKeys.add(buildPlaceDedupKey_(result.place));
-          STATE.places = mergePlaces_(STATE.places, [result.place]);
-        }
-      } catch (error) {
-        console.warn("Failed to sync local Atlas marker to backend", error);
-      }
-    }
-
-    writeLocalManualPlaces_(STATE.places);
-    renderMarkers();
+    // Legacy localStorage migration is intentionally retired.
   }
 
   function buildPlaceDedupKey_(place) {

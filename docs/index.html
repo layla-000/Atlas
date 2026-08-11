@@ -1,46 +1,34 @@
 <!DOCTYPE html>
 <html lang="ko">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atlas</title>
-    <meta name="description" content="Atlas - Travel Operating System">
-    <link rel="stylesheet" href="css/atlas.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atlas</title>
+  <meta name="description" content="Atlas - Travel Companion">
+  <link rel="stylesheet" href="css/atlas.css?v=20260811-1">
 </head>
-
 <body>
+  <div id="atlas-app">
+    <header id="atlas-header"></header>
+    <main id="atlas-dashboard">
+      <section id="atlas-brief"></section>
+      <section id="atlas-map"></section>
+      <section id="atlas-plan"></section>
+      <section id="atlas-status"></section>
+      <section id="atlas-actions"></section>
+      <section id="atlas-notes"></section>
+    </main>
+  </div>
+  <div id="atlas-overlay-root"></div>
 
-    <div id="atlas-app">
-
-        <header id="atlas-header"></header>
-
-        <main id="atlas-dashboard">
-
-            <section id="atlas-brief"></section>
-            <section id="atlas-map"></section>
-            <section id="atlas-plan"></section>
-            <section id="atlas-status"></section>
-            <section id="atlas-actions"></section>
-            <section id="atlas-notes"></section>
-
-        </main>
-
-    </div>
-
-    <div id="atlas-overlay-root"></div>
-
-    <script src="config/config.example.js"></script>
-    <script src="config/config.public.js"></script>
-
-    <script src="services/atlas.maps.js"></script>
-    <script src="services/atlas.upload.js"></script>
-<script src="./services/atlas.memory.js"></script>
-<script src="./services/atlas.brief.js"></script>
-<script src="./services/atlas.api.js"></script>
-    <script src="js/overlay/capture.js"></script>
-    <script src="js/atlas.app.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config/config.example.js?v=20260811-1"></script>
+  <script src="config/config.public.js?v=20260811-1"></script>
+  <script src="services/atlas.supabase.js?v=20260811-1"></script>
+  <script src="services/atlas.auth.js?v=20260811-1"></script>
+  <script src="services/atlas.api.js?v=20260811-1"></script>
+  <script src="services/atlas.maps.js?v=20260811-1"></script>
+  <script src="js/overlay/capture.js?v=20260811-1"></script>
+  <script src="js/atlas.app.js?v=20260811-1"></script>
 </body>
-
 </html>

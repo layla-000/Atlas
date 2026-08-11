@@ -6,22 +6,35 @@ const Atlas = (() => {
     travelStatus: null,
     dashboardNoteSaveTimer: null,
     dashboardNoteLoadedFromBackend: false,
-    initialized: false
+    initialized: false,
+    role: "none"
   };
 
   async function initialize() {
     console.log("Atlas initializing...");
 
+    await AtlasAuth.requireSession();
+    STATE.role = await AtlasAPI.getRole();
+    STATE.trip = await AtlasAPI.getCurrentTrip();
+
+    if (STATE.role === "none") {
+      document.getElementById("atlas-app").innerHTML = `
+        <main style="max-width:720px;margin:80px auto;padding:24px;color:#f2f4f3;font-family:var(--atlas-font)">
+          <h1>ATLAS</h1>
+          <p style="color:#c0c0c0;line-height:1.7">로그인은 됐지만 이 여행을 볼 권한이 아직 없어요. Owner가 Viewer 권한을 추가하면 다시 열어 주세요.</p>
+          <button class="atlas-auth-logout" onclick="AtlasAuth.signOut()">로그아웃</button>
+        </main>`;
+      return;
+    }
+
     render();
     bindEvents();
-    await refreshDashboardNote();
+    if (STATE.role === "owner") await refreshDashboardNote();
     await initializeMap();
     await refreshAtlasBrief();
     await refreshTravelStatus();
 
-    if (window.AtlasCapture) {
-      AtlasCapture.initialize();
-    }
+    if (window.AtlasCapture && STATE.role === "owner") AtlasCapture.initialize();
 
     STATE.initialized = true;
     console.log("Atlas ready.");
@@ -34,13 +47,19 @@ const Atlas = (() => {
     renderBriefPlaceholder();
     void renderStatus({});
     renderActions({});
-    renderNotes();
+    if (STATE.role === "owner") renderNotes();
+    else document.getElementById("atlas-notes").innerHTML = "";
   }
 
   function renderHeader() {
     document.getElementById("atlas-header").innerHTML = `
-      <h1 class="atlas-title">ATLAS</h1>
-      <p class="atlas-subtitle">Travel Operating System</p>
+      <div style="display:flex;align-items:flex-start;gap:14px">
+        <div>
+          <h1 class="atlas-title">ATLAS</h1>
+          <p class="atlas-subtitle">${escapeHtml(STATE.trip?.name || "Travel Companion")} · ${STATE.role === "owner" ? "Owner" : "Viewer"}</p>
+        </div>
+        <button class="atlas-auth-logout" onclick="AtlasAuth.signOut()">로그아웃</button>
+      </div>
     `;
   }
   function renderBriefPlaceholder() {
@@ -203,104 +222,45 @@ const Atlas = (() => {
   }
 
   function renderNotes(noteValue) {
-    const savedNote = noteValue == null ? getAtlasDashboardNoteFromLocal() : String(noteValue || "");
+    const savedNote = noteValue == null ? "" : String(noteValue || "");
     const notesContainer = getOrCreateNotesContainer();
     notesContainer.innerHTML = `
       <div class="atlas-card">
         <div class="atlas-card-inner">
-          <div class="atlas-card-label">Travel Notes</div>
-          <textarea
-            id="atlas-notes-input"
-            class="atlas-notes-input"
-            placeholder="주소, 예약번호, 탑승 게이트, 급히 적어둘 메모를 여기에 남겨두세요."
-          >${escapeHtml(savedNote)}</textarea>
-          <div id="atlas-notes-meta" class="atlas-notes-meta">자동 저장 준비 중이에요.</div>
+          <div class="atlas-card-label">Travel Notes · Private</div>
+          <textarea id="atlas-notes-input" class="atlas-notes-input" placeholder="개인 메모를 남겨두세요.">${escapeHtml(savedNote)}</textarea>
+          <div id="atlas-notes-meta" class="atlas-notes-meta">Layla Hub에서 불러오는 중이에요.</div>
         </div>
-      </div>
-    `;
+      </div>`;
   }
 
   async function refreshDashboardNote() {
-    const localNote = getAtlasDashboardNoteFromLocal();
-    setAtlasNotesMeta("브라우저 메모를 먼저 불러왔어요.");
-
-    if (!window.AtlasAPI || !AtlasAPI.getDashboardNote) {
-      setAtlasNotesMeta("이 메모는 이 브라우저에 자동 저장돼요.");
-      return;
-    }
-
+    if (STATE.role !== "owner") return;
     try {
       const result = await AtlasAPI.getDashboardNote({ tripId: "trip_turkiye_2026" });
-      const backendNote = result && result.note != null ? String(result.note) : "";
-      STATE.dashboardNoteLoadedFromBackend = true;
-
-      if (backendNote && backendNote !== localNote) {
-        saveAtlasDashboardNoteToLocal(backendNote);
-        const input = document.getElementById("atlas-notes-input");
-        if (input && !input.matches(":focus")) input.value = backendNote;
-      } else if (localNote && !backendNote) {
-        await saveAtlasDashboardNoteToBackend(localNote, { silent: true });
-      }
-
-      setAtlasNotesMeta("이 메모는 브라우저와 Atlas 백엔드에 자동 저장돼요.");
+      const input = document.getElementById("atlas-notes-input");
+      if (input) input.value = result?.note || "";
+      setAtlasNotesMeta("Layla Hub에 자동 저장돼요.");
     } catch (error) {
-      console.warn("Atlas dashboard note load failed:", error);
-      setAtlasNotesMeta("백엔드 연결 실패: 브라우저에 먼저 자동 저장돼요.");
-    }
-  }
-
-  function getAtlasDashboardNoteFromLocal() {
-    try {
-      return window.localStorage.getItem("atlas.dashboard.note") || "";
-    } catch (error) {
-      return "";
+      console.warn("Atlas note load failed", error);
+      setAtlasNotesMeta("메모를 불러오지 못했어요.");
     }
   }
 
   function saveAtlasDashboardNote(value) {
+    if (STATE.role !== "owner") return;
     const note = String(value || "");
-    saveAtlasDashboardNoteToLocal(note);
-    setAtlasNotesMeta("저장 중이에요...");
-
+    setAtlasNotesMeta("저장 중이에요…");
     window.clearTimeout(STATE.dashboardNoteSaveTimer);
-    STATE.dashboardNoteSaveTimer = window.setTimeout(() => {
-      void saveAtlasDashboardNoteToBackend(note);
-    }, 500);
-  }
-
-  function saveAtlasDashboardNoteToLocal(value) {
-    try {
-      window.localStorage.setItem("atlas.dashboard.note", String(value || ""));
-    } catch (error) {
-      console.warn("Atlas dashboard note local save failed:", error);
-    }
-  }
-
-  async function saveAtlasDashboardNoteToBackend(value, options) {
-    if (!window.AtlasAPI || !AtlasAPI.saveDashboardNote) {
-      setAtlasNotesMeta("이 메모는 이 브라우저에 자동 저장돼요.");
-      return null;
-    }
-
-    try {
-      const result = await AtlasAPI.saveDashboardNote({
-        tripId: "trip_turkiye_2026",
-        note: String(value || "")
-      });
-
-      if (result && result.success !== false && result.ok !== false) {
-        if (!options || !options.silent) {
-          setAtlasNotesMeta("저장됐어요. 브라우저와 Atlas 백엔드에 모두 보관돼요.");
-        }
-        return result;
+    STATE.dashboardNoteSaveTimer = window.setTimeout(async () => {
+      try {
+        await AtlasAPI.saveDashboardNote({ tripId: "trip_turkiye_2026", note });
+        setAtlasNotesMeta("Layla Hub에 저장됐어요.");
+      } catch (error) {
+        console.warn("Atlas note save failed", error);
+        setAtlasNotesMeta("저장에 실패했어요. 연결을 확인해 주세요.");
       }
-
-      throw new Error((result && (result.error || result.message)) || "Dashboard note save failed.");
-    } catch (error) {
-      console.warn("Atlas dashboard note backend save failed:", error);
-      setAtlasNotesMeta("백엔드 저장 실패: 브라우저에는 저장됐어요.");
-      return null;
-    }
+    }, 500);
   }
 
   function setAtlasNotesMeta(message) {
@@ -312,7 +272,11 @@ const Atlas = (() => {
     document.getElementById("atlas-map").innerHTML = `
       <div class="atlas-card">
         <div class="atlas-card-inner">
-          <div class="atlas-card-label">Live Map</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="atlas-card-label" style="margin-bottom:14px">Live Map</div>
+            ${STATE.role === "owner" ? `<button class="atlas-location-share" onclick="Atlas.updateCurrentLocation()">현재 위치 공유</button>` : ""}
+          </div>
+          <div id="atlas-shared-location" class="atlas-shared-location"></div>
           <div id="google-map" class="atlas-map-canvas"></div>
         </div>
       </div>
@@ -394,26 +358,32 @@ const Atlas = (() => {
   void refreshWeatherStatusItem();
 }
 async function getCurrentWeatherStatusItem() {
-  const gpsPlace = await getBrowserLocationPlace_();
-
-  if (!gpsPlace || !window.AtlasAPI?.getCurrentWeather) {
-    return {
-      label: "현재 위치 날씨",
-      value: "위치 권한 필요",
-      summary: "브라우저 위치 권한을 허용하면 현재 위치 날씨를 표시해요.",
-      detail: "-"
-    };
+  let place = null;
+  try {
+    const state = await AtlasAPI.getTripState();
+    if (state && Number.isFinite(Number(state.current_lat)) && Number.isFinite(Number(state.current_lng))) {
+      place = {
+        title: state.current_city || "현재 위치",
+        city: state.current_city || "현재 위치",
+        lat: Number(state.current_lat),
+        lng: Number(state.current_lng)
+      };
+      const shared = document.getElementById("atlas-shared-location");
+      if (shared) shared.textContent = `현재 공유 위치 · ${place.city}`;
+    }
+  } catch (error) {
+    console.warn("Atlas shared location load failed", error);
   }
 
-  const weather = await AtlasAPI.getCurrentWeather(gpsPlace);
+  if (!place && STATE.role === "owner") place = await getBrowserLocationPlace_();
+  if (!place) {
+    return { label: "현재 위치 날씨", value: "위치 미공유", summary: "Owner가 현재 위치를 공유하면 표시해요.", detail: "-" };
+  }
 
-  return {
-    label: weather.label || "현재 위치 날씨",
-    value: weather.value || "확인 대기",
-    summary: "브라우저 현재 위치 기준 날씨예요.",
-    detail: weather.value || "-"
-  };
+  const weather = await AtlasAPI.getCurrentWeather(place);
+  return { label: weather.label || "현재 위치 날씨", value: weather.value || "확인 대기", summary: "공유된 현재 위치 기준 날씨예요.", detail: weather.value || "-" };
 }
+
 function getBrowserLocationPlace_() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
@@ -491,50 +461,25 @@ async function refreshWeatherStatusItem() {
 
  function renderActions(links) {
   links = links || {};
+  const cards = [
+    renderQuickActionImageCard({ label: "Schedule", url: "schedule.html", imageSrc: "assets/images/quick-actions/schedule.png", imageAlt: "Schedule" })
+  ];
+
+  if (STATE.role === "owner") {
+    cards.push(
+      renderQuickActionImageCard({ label: "Boarding Pass", url: links.boarding_pass || "", imageSrc: "assets/images/quick-actions/bp.png", imageAlt: "Boarding Pass" }),
+      renderQuickActionImageCard({ label: "Hotel", url: links.hotel || "", imageSrc: "assets/images/quick-actions/hotel.png", imageAlt: "Hotel" }),
+      renderQuickActionImageCard({ label: "Documents", url: links.documents || "", imageSrc: "assets/images/quick-actions/documents.png", imageAlt: "Documents" }),
+      renderQuickActionImageCard({ label: "Packing", url: "packing.html", imageSrc: "assets/images/quick-actions/packing.png", imageAlt: "Packing" }),
+      `<a class="atlas-action-card atlas-action-card-text" href="expenses.html" aria-label="Expenses">₩<span>Expenses</span></a>`
+    );
+  }
 
   document.getElementById("atlas-actions").innerHTML = `
-    <div class="atlas-card">
-      <div class="atlas-card-inner">
-        <div class="atlas-card-label">Quick Actions</div>
-        <div class="atlas-actions-grid">
-  ${renderQuickActionImageCard({
-  label: "Schedule",
-  url: links.schedule || "schedule.html",
-  imageSrc: "assets/images/quick-actions/schedule.png",
-  imageAlt: "Schedule"
-})}
-
-          ${renderQuickActionImageCard({
-            label: "Boarding Pass",
-            url: links.boarding_pass,
-            imageSrc: "assets/images/quick-actions/bp.png",
-            imageAlt: "Boarding Pass"
-          })}
-
-          ${renderQuickActionImageCard({
-            label: "Hotel",
-            url: links.hotel,
-            imageSrc: "assets/images/quick-actions/hotel.png",
-            imageAlt: "Hotel"
-          })}
-
-          ${renderQuickActionImageCard({
-            label: "Documents",
-            url: links.documents,
-            imageSrc: "assets/images/quick-actions/documents.png",
-            imageAlt: "Documents"
-          })}
-
-          ${renderQuickActionImageCard({
-            label: "Packing",
-            url: links.packing,
-            imageSrc: "assets/images/quick-actions/packing.png",
-            imageAlt: "Packing"
-          })}
-        </div>
-      </div>
-    </div>
-  `;
+    <div class="atlas-card"><div class="atlas-card-inner">
+      <div class="atlas-card-label">Quick Actions</div>
+      <div class="atlas-actions-grid">${cards.join("")}</div>
+    </div></div>`;
 }
 
   function renderQuickActionImageCard(options) {
@@ -568,6 +513,19 @@ async function refreshWeatherStatusItem() {
     if (window.AtlasAPI && AtlasAPI.getMapPlaces) {
       try {
         places = await AtlasAPI.getMapPlaces();
+        const sharedState = await AtlasAPI.getTripState();
+        if (sharedState && Number.isFinite(Number(sharedState.current_lat)) && Number.isFinite(Number(sharedState.current_lng))) {
+          places = [{
+            id: "atlas-current-location",
+            title: sharedState.current_city || "현재 위치",
+            address: "Owner가 공유한 현재 위치",
+            lat: Number(sharedState.current_lat),
+            lng: Number(sharedState.current_lng),
+            category: "현재 위치",
+            type: "shared_current",
+            source: "Layla Hub"
+          }, ...places];
+        }
         console.log("ATLAS MAP PLACES RAW", places);
       } catch (error) {
         console.warn("Failed to load Atlas map places", error);
@@ -575,10 +533,7 @@ async function refreshWeatherStatusItem() {
     }
 
     if (!places || places.length === 0) {
-      places = [
-        { id: "home", title: "Seoul", lat: 37.5665, lng: 126.9780, category: "장소" },
-        { id: "airport", title: "Incheon Airport", lat: 37.4602, lng: 126.4407, category: "공항" }
-      ];
+      places = [{ id: "istanbul", title: "Istanbul", lat: 41.0082, lng: 28.9784, category: "기본 위치", type: "default" }];
     }
 
     STATE.places = places;
@@ -603,6 +558,27 @@ async function refreshWeatherStatusItem() {
     });
   }
 
+  async function updateCurrentLocation() {
+    if (STATE.role !== "owner") return;
+    const place = await getBrowserLocationPlace_();
+    if (!place) { alert("브라우저 위치 권한을 허용해 주세요."); return; }
+    let city = "현재 위치";
+    try {
+      if (window.google?.maps) {
+        const geocoder = new google.maps.Geocoder();
+        const result = await geocoder.geocode({ location: { lat: place.lat, lng: place.lng } });
+        const components = result?.results?.[0]?.address_components || [];
+        const locality = components.find((c) => c.types.includes("locality")) || components.find((c) => c.types.includes("administrative_area_level_1"));
+        city = locality?.long_name || result?.results?.[0]?.formatted_address || city;
+      }
+    } catch (error) { console.warn("Atlas reverse geocode failed", error); }
+    await AtlasAPI.updateTripState({ city, lat: place.lat, lng: place.lng });
+    const shared = document.getElementById("atlas-shared-location");
+    if (shared) shared.textContent = `현재 공유 위치 · ${city}`;
+    await refreshWeatherStatusItem();
+    alert("현재 위치를 Atlas에 공유했어요.");
+  }
+
   function escapeHtml(value) {
     return String(value || "")
       .replaceAll("&", "&amp;")
@@ -612,7 +588,7 @@ async function refreshWeatherStatusItem() {
       .replaceAll("'", "&#039;");
   }
 
-  return { initialize };
+  return { initialize, updateCurrentLocation };
 })();
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -895,38 +871,8 @@ function setAtlasScheduleSaving(isSaving) {
 }
 
 async function sendAtlasSchedulePayload(payload) {
-  const endpoint =
-    window.ATLAS_API_URL ||
-    window.ATLAS_WEB_APP_URL ||
-    "";
-
-  if (!endpoint) {
-    throw new Error("ATLAS_API_URL 또는 ATLAS_WEB_APP_URL이 설정되어 있지 않아요.");
-  }
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    body: JSON.stringify({
-      action: "create_schedule",
-      payload
-    })
-  });
-
-  const text = await response.text();
-
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error("서버 응답을 JSON으로 읽을 수 없어요: " + text);
-  }
-
-if (!json.ok) {
-  console.error("Atlas schedule server error:", json);
-  throw new Error(json.error || json.message || JSON.stringify(json));
-}
-
-  return json;
+  if (!window.AtlasAPI?.createSchedule) throw new Error("Atlas Supabase API가 준비되지 않았어요.");
+  return AtlasAPI.createSchedule(payload);
 }
 
 function closeAtlasScheduleModal() {

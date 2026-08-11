@@ -1,315 +1,416 @@
 window.AtlasAPI = (() => {
-  function getBackendEndpoint() {
-    if (!window.AtlasConfig || !window.AtlasConfig.backend) return "";
-    return window.AtlasConfig.backend.uploadEndpoint || "";
+  const DEFAULT_TRIP_ID = () => window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+  const HOME_TZ = () => window.AtlasConfig?.atlas?.homeTimeZone || "Asia/Seoul";
+
+  function db() {
+    return window.AtlasSupabase?.getClient();
   }
 
-  async function request(action, fallback, options) {
-    const endpoint = getBackendEndpoint();
-    if (!endpoint) {
-      console.warn("AtlasAPI endpoint is missing.");
-      return fallback;
-    }
+  async function getUser() {
+    const user = await window.AtlasSupabase?.getUser();
+    if (!user) throw new Error("Atlas 로그인이 필요해요.");
+    return user;
+  }
 
-    const url = `${endpoint}?action=${encodeURIComponent(action)}`;
-    console.log("AtlasAPI request:", action, url);
+  async function getCurrentTrip(tripId = DEFAULT_TRIP_ID()) {
+    const { data, error } = await db()
+      .from("atlas_trips")
+      .select("id,name,start_date,end_date,time_zone,home_time_zone,drive_links")
+      .eq("id", tripId)
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  }
 
-    try {
-      const response = await fetch(url, options || {});
-      console.log("AtlasAPI response:", action, response.status, response.statusText);
-
-      const data = await response.json();
-      console.log("AtlasAPI data:", action, data);
-
-      if (!data || data.success === false) return fallback;
-      return data;
-    } catch (error) {
-      console.warn(`AtlasAPI ${action} request failed:`, error);
-      return fallback;
-    }
+  async function getRole(tripId = DEFAULT_TRIP_ID()) {
+    const user = await getUser();
+    const { data, error } = await db()
+      .from("atlas_trip_members")
+      .select("role")
+      .eq("trip_id", tripId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.role || "none";
   }
 
   async function getBrief() {
-    const fallback = {
-      success: true,
-      brief: {
-        title: "좋은 아침이에요.",
-        summary: "Atlas Brief 연결을 준비하고 있어요.",
-        priority: "normal",
-        actions: [],
-        status: "demo"
-      }
+    const trip = await getCurrentTrip();
+    const scheduleResult = await getFullSchedule({ tripId: trip?.id || DEFAULT_TRIP_ID() });
+    const events = (scheduleResult.events || []).slice().sort((a, b) => String(a.startAt || "").localeCompare(String(b.startAt || "")));
+    const nowKey = localDateTimeKey(new Date());
+    const next = events.find((event) => String(event.startAt || "") >= nowKey) || events[0];
+
+    return {
+      title: next ? `다음 일정 · ${next.title}` : "등록된 다음 일정이 아직 없어요.",
+      today_plan: events.slice(0, 3),
+      time_card: await buildTimeCard(trip),
+      next_transport: next ? {
+        title: next.title,
+        departure_place: next.details?.departurePlace || next.location || "-",
+        arrival_place: next.details?.arrivalPlace || "-"
+      } : {},
+      quick_links: trip?.drive_links || {}
     };
-
-    const data = await request("brief", fallback);
-    return data.brief || fallback.brief;
   }
 
-  async function getMemory() {
-    const fallback = { success: true, records: [] };
-    const data = await request("memory", fallback);
-    return data.records || [];
-  }
+  async function getMemory() { return []; }
 
   async function getTravelStatus() {
-    const fallback = {
-      success: true,
-      status: {
-        status: "demo",
-        title: "Travel Status",
-        summary: "Atlas Travel Status 연결을 준비하고 있어요.",
-        items: []
-      }
-    };
-
-    const data = await request("status", fallback);
-    return data.status || fallback.status;
+    const trip = await getCurrentTrip();
+    return { status: "ready", title: "Travel Status", time_card: await buildTimeCard(trip), items: [] };
   }
-    function getWeatherLabelFromCode(code) {
-    const weatherMap = {
-      0: "맑음",
-      1: "대체로 맑음",
-      2: "부분적으로 흐림",
-      3: "흐림",
-      45: "안개",
-      48: "서리 안개",
-      51: "약한 이슬비",
-      53: "이슬비",
-      55: "강한 이슬비",
-      61: "약한 비",
-      63: "비",
-      65: "강한 비",
-      71: "약한 눈",
-      73: "눈",
-      75: "강한 눈",
-      80: "약한 소나기",
-      81: "소나기",
-      82: "강한 소나기",
-      95: "뇌우"
-    };
 
-    return weatherMap[Number(code)] || "날씨 확인 중";
-  }
-async function getCurrentWeather(place) {
-  if (!place || !Number.isFinite(Number(place.lat)) || !Number.isFinite(Number(place.lng))) {
+  async function buildTimeCard(trip) {
+    const localTimeZone = trip?.time_zone || "Europe/Istanbul";
+    const homeTimeZone = trip?.home_time_zone || HOME_TZ();
     return {
-      label: "현재 지역 날씨",
-      value: "대기 중"
+      local_label: "현지 시간",
+      local_time: formatTime(new Date(), localTimeZone),
+      home_label: "서울 시간",
+      home_time: formatTime(new Date(), homeTimeZone)
     };
   }
 
-  const region = place.city || place.title || place.name || "현재 지역";
-
-  const fallback = {
-    success: true,
-    ok: true,
-    weather: {
-      label: `${region} 날씨`,
-      value: "확인 대기"
+  function formatTime(date, timeZone) {
+    try {
+      return new Intl.DateTimeFormat("ko-KR", {
+        timeZone,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }).format(date);
+    } catch {
+      return "--:--";
     }
-  };
-
-  const data = await request("weather", fallback, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8"
-    },
-    body: JSON.stringify({
-      action: "weather",
-      payload: {
-        lat: Number(place.lat),
-        lng: Number(place.lng),
-        region: region
-      }
-    })
-  });
-
-  return data.weather || fallback.weather;
-}
-  async function getMapPlaces() {
-    const fallback = { success: true, places: [] };
-    const data = await request("map_places", fallback);
-
-    // Older Apps Script responses returned the places array directly.
-    // Newer responses return { success: true, places: [...] }. Support both
-    // so saved manual markers survive refresh even if the backend deployment
-    // is one version behind.
-    if (Array.isArray(data)) return data;
-
-    return data.places || data.items || [];
   }
 
-  async function requestViaGetPayload(action, payload, fallback) {
-    const endpoint = getBackendEndpoint();
-    if (!endpoint) return fallback;
+  async function getCurrentWeather(place) {
+    if (!place || !Number.isFinite(Number(place.lat)) || !Number.isFinite(Number(place.lng))) {
+      return { label: "현재 지역 날씨", value: "위치 없음" };
+    }
 
-    const url = `${endpoint}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(JSON.stringify(payload || {}))}&_=${Date.now()}`;
+    const url = new URL("https://api.open-meteo.com/v1/forecast");
+    url.searchParams.set("latitude", Number(place.lat));
+    url.searchParams.set("longitude", Number(place.lng));
+    url.searchParams.set("current", "temperature_2m,weather_code");
+    url.searchParams.set("timezone", "auto");
 
     try {
-      const response = await fetch(url, { method: "GET", cache: "no-store" });
+      const response = await fetch(url.toString(), { cache: "no-store" });
+      if (!response.ok) throw new Error(`Weather ${response.status}`);
       const data = await response.json();
-      if (!data || data.success === false || data.ok === false) return data || fallback;
-      return data;
+      const temperature = data?.current?.temperature_2m;
+      const code = data?.current?.weather_code;
+      const region = place.city || place.title || place.name || "현재 지역";
+      return {
+        label: `${region} 날씨`,
+        value: Number.isFinite(Number(temperature)) ? `${Math.round(Number(temperature))}° · ${getWeatherLabelFromCode(code)}` : getWeatherLabelFromCode(code)
+      };
     } catch (error) {
-      console.warn(`AtlasAPI ${action} GET fallback failed:`, error);
-      return fallback;
+      console.warn("Atlas weather request failed", error);
+      return { label: "현재 지역 날씨", value: "확인 실패" };
     }
+  }
+
+  function getWeatherLabelFromCode(code) {
+    const weatherMap = {
+      0: "맑음", 1: "대체로 맑음", 2: "부분적으로 흐림", 3: "흐림",
+      45: "안개", 48: "서리 안개", 51: "약한 이슬비", 53: "이슬비", 55: "강한 이슬비",
+      61: "약한 비", 63: "비", 65: "강한 비", 71: "약한 눈", 73: "눈", 75: "강한 눈",
+      80: "약한 소나기", 81: "소나기", 82: "강한 소나기", 95: "뇌우", 96: "우박을 동반한 뇌우", 99: "강한 우박 뇌우"
+    };
+    return weatherMap[Number(code)] || "날씨 확인 중";
+  }
+
+  async function getTripState(tripId = DEFAULT_TRIP_ID()) {
+    const { data, error } = await db()
+      .from("atlas_trip_state")
+      .select("trip_id,current_city,current_lat,current_lng,updated_at")
+      .eq("trip_id", tripId)
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  }
+
+  async function updateTripState(params = {}) {
+    const role = await getRole(params.tripId || DEFAULT_TRIP_ID());
+    if (role !== "owner") throw new Error("Owner만 현재 위치를 갱신할 수 있어요.");
+    const payload = {
+      trip_id: params.tripId || DEFAULT_TRIP_ID(),
+      current_city: params.city || "현재 위치",
+      current_lat: Number(params.lat),
+      current_lng: Number(params.lng),
+      updated_at: new Date().toISOString()
+    };
+    const { data, error } = await db().from("atlas_trip_state").upsert(payload, { onConflict: "trip_id" }).select().single();
+    if (error) throw error;
+    return { success: true, ok: true, state: data };
+  }
+
+  async function getMapPlaces(tripId = DEFAULT_TRIP_ID()) {
+    const { data, error } = await db()
+      .from("atlas_places")
+      .select("id,trip_id,title,address,category,lat,lng,google_place_id,source,created_at")
+      .eq("trip_id", tripId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data || []).map(fromPlaceRow);
   }
 
   async function saveManualMapPlace(place) {
-    const fallback = { success: false, ok: false, place: null };
-    const payload = place || {};
-
-    const postResult = await request("save_manual_map_place", fallback, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
-      body: JSON.stringify({ action: "save_manual_map_place", payload })
-    });
-
-    if (postResult && postResult.success !== false && postResult.ok !== false && postResult.place) {
-      return postResult;
-    }
-
-    return requestViaGetPayload("save_manual_map_place", payload, postResult || fallback);
+    const user = await getUser();
+    const tripId = place?.tripId || DEFAULT_TRIP_ID();
+    const role = await getRole(tripId);
+    if (role !== "owner") throw new Error("Owner만 마커를 저장할 수 있어요.");
+    const row = {
+      id: isUuid(place?.id) ? place.id : crypto.randomUUID(),
+      trip_id: tripId,
+      created_by: user.id,
+      title: place?.title || place?.name || "Atlas place",
+      address: place?.address || place?.query || "",
+      category: place?.category || "장소",
+      lat: Number(place?.lat),
+      lng: Number(place?.lng),
+      google_place_id: place?.placeId || place?.place_id || "",
+      source: place?.source || "Atlas Map"
+    };
+    const { data, error } = await db().from("atlas_places").upsert(row).select().single();
+    if (error) throw error;
+    return { success: true, ok: true, place: fromPlaceRow(data) };
   }
 
   async function removeManualMapPlace(placeId) {
-    const fallback = { success: false, ok: false };
-    const payload = { placeId };
+    const role = await getRole();
+    if (role !== "owner") throw new Error("Owner만 마커를 삭제할 수 있어요.");
+    const { error } = await db().from("atlas_places").delete().eq("id", placeId);
+    if (error) throw error;
+    return { success: true, ok: true };
+  }
 
-    const postResult = await request("remove_manual_map_place", fallback, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
-      body: JSON.stringify({ action: "remove_manual_map_place", payload })
-    });
+  function fromPlaceRow(row) {
+    return {
+      id: row.id,
+      tripId: row.trip_id,
+      title: row.title,
+      address: row.address,
+      query: row.address,
+      category: row.category,
+      lat: Number(row.lat),
+      lng: Number(row.lng),
+      placeId: row.google_place_id || "",
+      source: row.source || "Supabase",
+      type: "manual_place"
+    };
+  }
 
-    if (postResult && postResult.success !== false && postResult.ok !== false) {
-      return postResult;
+  async function getFullSchedule(params = {}) {
+    const tripId = params.tripId || DEFAULT_TRIP_ID();
+    let query = db()
+      .from("atlas_schedule")
+      .select("id,trip_id,schedule_type,title,start_at,end_at,location,details,source,created_at,updated_at")
+      .eq("trip_id", tripId)
+      .order("start_at", { ascending: true });
+    if (params.startDate) query = query.gte("start_at", `${params.startDate} 00:00:00`);
+    if (params.endDate) query = query.lte("start_at", `${params.endDate} 23:59:59`);
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const ids = (data || []).map((row) => row.id);
+    let privateById = new Map();
+    if (ids.length) {
+      const { data: privateRows, error: privateError } = await db()
+        .from("atlas_schedule_private")
+        .select("schedule_id,confirmation_number,notes")
+        .in("schedule_id", ids);
+      if (privateError && privateError.code !== "42501") console.warn("Atlas private schedule fields unavailable", privateError);
+      privateById = new Map((privateRows || []).map((row) => [row.schedule_id, row]));
     }
 
-    return requestViaGetPayload("remove_manual_map_place", payload, postResult || fallback);
+    const events = (data || []).map((row) => {
+      const privateRow = privateById.get(row.id) || {};
+      return {
+        id: row.id,
+        tripId: row.trip_id,
+        scheduleType: row.schedule_type,
+        type: row.schedule_type,
+        title: row.title,
+        startAt: normalizeTimestamp(row.start_at),
+        endAt: normalizeTimestamp(row.end_at),
+        location: row.location || "",
+        details: row.details || {},
+        source: row.source || "manual_schedule",
+        confirmationNumber: privateRow.confirmation_number || "",
+        notes: privateRow.notes || ""
+      };
+    });
+    return { success: true, ok: true, schedule: events, events };
   }
 
-async function updateScheduleNote(params) {
-  const fallback = {
-    success: false,
-    ok: false
-  };
-
-  return request("update_schedule_note", fallback, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8"
-    },
-    body: JSON.stringify({
-      action: "update_schedule_note",
-      payload: params || {}
-    })
-  });
-}
-async function updateScheduleTime(params) {
-  const fallback = {
-    success: false,
-    ok: false
-  };
-
-  return request("update_schedule_time", fallback, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8"
-    },
-    body: JSON.stringify({
-      action: "update_schedule_time",
-      payload: params || {}
-    })
-  });
-}
-
-async function getFullSchedule(params) {
-  const fallback = {
-    success: false,
-    ok: false,
-    schedule: [],
-    events: []
-  };
-
-  const data = await request("get_full_schedule", fallback, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8"
-    },
-    body: JSON.stringify({
-      action: "get_full_schedule",
-      payload: params || {}
-    })
-  });
-
-  if (!data.ok && data.success === false) {
-    throw new Error(data.error || data.message || "전체 일정 조회에 실패했어요.");
+  async function createSchedule(payload = {}) {
+    const user = await getUser();
+    const tripId = payload.tripId || DEFAULT_TRIP_ID();
+    const role = await getRole(tripId);
+    if (role !== "owner") throw new Error("Owner만 일정을 추가할 수 있어요.");
+    const row = {
+      id: crypto.randomUUID(),
+      trip_id: tripId,
+      created_by: user.id,
+      schedule_type: payload.scheduleType || payload.type || "etc",
+      title: payload.title || "일정",
+      start_at: payload.startAt || null,
+      end_at: payload.endAt || null,
+      location: payload.location || "",
+      details: payload.details || {},
+      source: "manual_schedule"
+    };
+    const { data, error } = await db().from("atlas_schedule").insert(row).select().single();
+    if (error) throw error;
+    const privatePayload = {
+      schedule_id: data.id,
+      confirmation_number: payload.confirmationNumber || payload.details?.confirmationNumber || "",
+      notes: payload.notes || ""
+    };
+    const { error: privateError } = await db().from("atlas_schedule_private").upsert(privatePayload);
+    if (privateError) throw privateError;
+    return { success: true, ok: true, timelineEvent: { ...payload, id: data.id, source: "manual_schedule" }, message: "일정을 저장했어요." };
   }
 
-  return data;
-}
+  async function updateScheduleNote(params = {}) {
+    const role = await getRole();
+    if (role !== "owner") throw new Error("Owner만 메모를 수정할 수 있어요.");
+    const { error } = await db().from("atlas_schedule_private").upsert({ schedule_id: params.id, notes: params.notes || "" }, { onConflict: "schedule_id" });
+    if (error) throw error;
+    return { success: true, ok: true };
+  }
 
-async function getDashboardNote(params) {
-  const fallback = {
-    success: true,
-    ok: true,
-    note: "",
-    record: null
-  };
+  async function updateScheduleTime(params = {}) {
+    const role = await getRole();
+    if (role !== "owner") throw new Error("Owner만 시간을 수정할 수 있어요.");
+    const { error } = await db().from("atlas_schedule").update({ start_at: params.startAt || null, end_at: params.endAt || null, updated_at: new Date().toISOString() }).eq("id", params.id);
+    if (error) throw error;
+    return { success: true, ok: true };
+  }
 
-  const query = params && params.tripId
-    ? `&tripId=${encodeURIComponent(params.tripId)}`
-    : "";
+  async function getDashboardNote(params = {}) {
+    const tripId = params.tripId || DEFAULT_TRIP_ID();
+    const { data, error } = await db()
+      .from("atlas_notes")
+      .select("id,note")
+      .eq("trip_id", tripId)
+      .eq("note_key", "dashboard")
+      .maybeSingle();
+    if (error) throw error;
+    return { success: true, ok: true, note: data?.note || "", record: data || null };
+  }
 
-  const endpoint = getBackendEndpoint();
-  if (!endpoint) return fallback;
+  async function saveDashboardNote(params = {}) {
+    const user = await getUser();
+    const tripId = params.tripId || DEFAULT_TRIP_ID();
+    const role = await getRole(tripId);
+    if (role !== "owner") throw new Error("Owner만 개인 메모를 저장할 수 있어요.");
+    const { data, error } = await db().from("atlas_notes").upsert({
+      trip_id: tripId,
+      user_id: user.id,
+      note_key: "dashboard",
+      note: params.note || "",
+      updated_at: new Date().toISOString()
+    }, { onConflict: "trip_id,user_id,note_key" }).select().single();
+    if (error) throw error;
+    return { success: true, ok: true, record: data };
+  }
 
-  try {
-    const response = await fetch(`${endpoint}?action=dashboard_note${query}`);
-    const data = await response.json();
-    if (!data || data.success === false) return fallback;
+  async function getPackingItems(tripId = DEFAULT_TRIP_ID()) {
+    const { data, error } = await db().from("atlas_packing_items").select("*").eq("trip_id", tripId).order("sort_order").order("created_at");
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function addPackingItem(item = {}) {
+    const user = await getUser();
+    const { data, error } = await db().from("atlas_packing_items").insert({
+      trip_id: item.tripId || DEFAULT_TRIP_ID(), user_id: user.id, category: item.category || "기타", item: item.item, quantity: Number(item.quantity || 1), is_checked: false
+    }).select().single();
+    if (error) throw error;
     return data;
-  } catch (error) {
-    console.warn("AtlasAPI dashboard_note request failed:", error);
-    return fallback;
   }
-}
 
-async function saveDashboardNote(params) {
-  const fallback = {
-    success: false,
-    ok: false
-  };
+  async function updatePackingItem(id, patch) {
+    const { data, error } = await db().from("atlas_packing_items").update(patch).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
 
-  return request("save_dashboard_note", fallback, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8"
-    },
-    body: JSON.stringify({
-      action: "save_dashboard_note",
-      payload: params || {}
-    })
-  });
-}
+  async function deletePackingItem(id) {
+    const { error } = await db().from("atlas_packing_items").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  async function getExchangeRateToKrw(currency) {
+    const code = String(currency || "KRW").trim().toUpperCase();
+    if (code === "KRW") return { rate: 1, source: "KRW", date: localDateKey(new Date()) };
+    const response = await fetch("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", { cache: "no-store" });
+    if (!response.ok) throw new Error(`ECB 환율 조회 실패 (${response.status})`);
+    const xml = await response.text();
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    const cubeNodes = [...doc.querySelectorAll("Cube[currency][rate]")];
+    const rates = new Map(cubeNodes.map((node) => [node.getAttribute("currency"), Number(node.getAttribute("rate"))]));
+    const krwPerEur = rates.get("KRW");
+    const currencyPerEur = rates.get(code);
+    if (!krwPerEur || !currencyPerEur) throw new Error(`${code}는 ECB 기준환율에서 찾지 못했어요.`);
+    const date = doc.querySelector("Cube[time]")?.getAttribute("time") || localDateKey(new Date());
+    return { rate: krwPerEur / currencyPerEur, source: "ECB reference rate", date };
+  }
+
+  async function getExpenses(tripId = DEFAULT_TRIP_ID()) {
+    const { data, error } = await db().from("atlas_expenses").select("*").eq("trip_id", tripId).order("spent_at", { ascending: false }).order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function addExpense(expense = {}) {
+    const user = await getUser();
+    const amount = Number(expense.amount || 0);
+    const rate = Number(expense.exchangeRate || 0);
+    const krw = expense.currency === "KRW" ? amount : amount * rate;
+    const { data, error } = await db().from("atlas_expenses").insert({
+      trip_id: expense.tripId || DEFAULT_TRIP_ID(), user_id: user.id, spent_at: expense.spentAt || localDateKey(new Date()), category: expense.category || "기타", merchant: expense.merchant || "", memo: expense.memo || "", original_amount: amount, currency: expense.currency || "KRW", exchange_rate_to_krw: expense.currency === "KRW" ? 1 : rate, krw_amount: Math.round(krw), payment_method: expense.paymentMethod || ""
+    }).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteExpense(id) {
+    const { error } = await db().from("atlas_expenses").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+  }
+
+  function normalizeTimestamp(value) {
+    if (!value) return "";
+    return String(value).replace(" ", "T").slice(0, 16);
+  }
+
+  function localDateKey(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function localDateTimeKey(date) {
+    return `${localDateKey(date)}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+
   return {
-    getBrief,
-    getMemory,
-    getTravelStatus,
-    getMapPlaces,
-        getCurrentWeather,
-    saveManualMapPlace,
-    removeManualMapPlace,
-    updateScheduleNote,
-    updateScheduleTime,
-    getFullSchedule,
-    getDashboardNote,
-    saveDashboardNote
+    getCurrentTrip, getRole, getBrief, getMemory, getTravelStatus, getCurrentWeather,
+    getTripState, updateTripState, getMapPlaces, saveManualMapPlace, removeManualMapPlace,
+    getFullSchedule, createSchedule, updateScheduleNote, updateScheduleTime,
+    getDashboardNote, saveDashboardNote,
+    getPackingItems, addPackingItem, updatePackingItem, deletePackingItem,
+    getExchangeRateToKrw, getExpenses, addExpense, deleteExpense
   };
 })();
