@@ -15,11 +15,25 @@ window.AtlasAPI = (() => {
   async function getCurrentTrip(tripId = DEFAULT_TRIP_ID()) {
     const { data, error } = await db()
       .from("atlas_trips")
-      .select("id,name,start_date,end_date,time_zone,home_time_zone,drive_links")
+      .select("id,name,start_date,end_date,time_zone,home_time_zone")
       .eq("id", tripId)
       .maybeSingle();
     if (error) throw error;
     return data || null;
+  }
+
+  async function getDriveLinks(tripId = DEFAULT_TRIP_ID()) {
+    const role = await getRole(tripId);
+    if (role !== "owner") return {};
+
+    const { data, error } = await db()
+      .from("atlas_trip_private")
+      .select("drive_links")
+      .eq("trip_id", tripId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data?.drive_links || {};
   }
 
   async function getRole(tripId = DEFAULT_TRIP_ID()) {
@@ -36,7 +50,11 @@ window.AtlasAPI = (() => {
 
   async function getBrief() {
     const trip = await getCurrentTrip();
-    const scheduleResult = await getFullSchedule({ tripId: trip?.id || DEFAULT_TRIP_ID() });
+    const tripId = trip?.id || DEFAULT_TRIP_ID();
+    const [scheduleResult, driveLinks] = await Promise.all([
+      getFullSchedule({ tripId }),
+      getDriveLinks(tripId)
+    ]);
     const events = (scheduleResult.events || []).slice().sort((a, b) => String(a.startAt || "").localeCompare(String(b.startAt || "")));
     const nowKey = localDateTimeKey(new Date());
     const next = events.find((event) => String(event.startAt || "") >= nowKey) || events[0];
@@ -50,7 +68,7 @@ window.AtlasAPI = (() => {
         departure_place: next.details?.departurePlace || next.location || "-",
         arrival_place: next.details?.arrivalPlace || "-"
       } : {},
-      quick_links: trip?.drive_links || {}
+      quick_links: driveLinks
     };
   }
 
@@ -487,7 +505,7 @@ window.AtlasAPI = (() => {
   }
 
   return {
-    getCurrentTrip, getRole, getBrief, getMemory, getTravelStatus, getCurrentWeather,
+    getCurrentTrip, getDriveLinks, getRole, getBrief, getMemory, getTravelStatus, getCurrentWeather,
     getTripState, updateTripState, getMapPlaces, saveManualMapPlace, removeManualMapPlace,
     getFullSchedule, createSchedule, updateSchedule, deleteSchedule, updateScheduleNote, updateScheduleTime,
     getDashboardNote, saveDashboardNote,
