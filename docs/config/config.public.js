@@ -1,4 +1,15 @@
+window.AtlasConfig = window.AtlasConfig || {};
+window.AtlasConfig.maps = window.AtlasConfig.maps || {};
 window.AtlasConfig.maps.apiKey = "AIzaSyBCCIW8JsILMyOOgCfzeurPkvqvHp8z2yY";
-window.ATLAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyC-kDrY0tgvLgZSvhryUHQy1ZPr11ySnH40ilJGsSJCn1fZb5YxPiFIW0ym3ElisUZGQ/exec";
-window.AtlasConfig.backend.uploadEndpoint =
-    "https://script.google.com/macros/s/AKfycbyC-kDrY0tgvLgZSvhryUHQy1ZPr11ySnH40ilJGsSJCn1fZb5YxPiFIW0ym3ElisUZGQ/exec";
+
+// Layla Hub (Supabase). Publishable keys are designed for browser use;
+// access is protected by Supabase Auth + RLS, never by hiding this key.
+window.AtlasConfig.supabase = {
+  url: "https://yhliabpgjnraozzfpxgy.supabase.co",
+  publishableKey: "sb_publishable_kNDndAby5yjCpplSbzAGZA_hAF9K3Fl"
+};
+
+window.AtlasConfig.atlas = {
+  defaultTripId: "trip_turkiye_2026",
+  homeTimeZone: "Asia/Seoul"
+};
