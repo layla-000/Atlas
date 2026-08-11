@@ -467,7 +467,12 @@ async function refreshWeatherStatusItem() {
 
   if (STATE.role === "owner") {
     cards.push(
-      `<a class="atlas-action-card atlas-action-card-text" href="expenses.html" aria-label="Expenses">₩<span>Expenses</span></a>`,
+      renderQuickActionImageCard({
+        label: "Expenses",
+        url: "expenses.html",
+        imageSrc: "assets/images/quick-actions/money.png",
+        imageAlt: "Expenses"
+      }),
       renderQuickActionImageCard({ label: "Documents", url: links.documents || "", imageSrc: "assets/images/quick-actions/documents.png", imageAlt: "Documents" }),
       renderQuickActionImageCard({ label: "Packing", url: "packing.html", imageSrc: "assets/images/quick-actions/packing.png", imageAlt: "Packing" }),
       renderQuickActionImageCard({ label: "Boarding Pass", url: links.boarding_pass || "", imageSrc: "assets/images/quick-actions/bp.png", imageAlt: "Boarding Pass" }),
