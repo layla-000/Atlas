@@ -217,36 +217,54 @@ initMapClickToAdd_();
       button.textContent = "…";
 
       try {
-        if (STATE.placesService && window.google.maps.places?.PlacesServiceStatus) {
-          const googlePlace = await new Promise((resolve, reject) => {
-            STATE.placesService.textSearch(
-              { query, bounds: STATE.map.getBounds() || undefined },
-              (results, status) => {
-                if (status === window.google.maps.places.PlacesServiceStatus.OK && results?.[0]) {
-                  resolve(results[0]);
-                } else {
-                  reject(new Error("검색 결과를 찾지 못했어요."));
-                }
+        let googlePlace = null;
+
+        // Prefer Places (New). Legacy PlacesService/Autocomplete are no longer
+        // available to new customers, so Atlas must not depend on them.
+        try {
+          if (window.google.maps.importLibrary) {
+            const placesLibrary = await window.google.maps.importLibrary("places");
+            const PlaceClass = placesLibrary?.Place;
+            if (PlaceClass?.searchByText) {
+              const response = await PlaceClass.searchByText({
+                textQuery: query,
+                fields: ["id", "displayName", "formattedAddress", "location", "types"],
+                maxResultCount: 1,
+                locationBias: STATE.map.getBounds() || undefined
+              });
+              const place = response?.places?.[0];
+              if (place?.location) {
+                googlePlace = {
+                  place_id: place.id || "",
+                  name: place.displayName || query,
+                  formatted_address: place.formattedAddress || "",
+                  geometry: { location: place.location },
+                  types: place.types || []
+                };
               }
-            );
-          });
-          showGooglePlaceAsPending_(googlePlace);
-          input.value = "";
-          return;
+            }
+          }
+        } catch (newPlacesError) {
+          console.warn("Atlas Places (New) search unavailable; falling back to Geocoder", newPlacesError);
         }
 
-        const geocoder = new window.google.maps.Geocoder();
-        const response = await geocoder.geocode({ address: query });
-        const result = response?.results?.[0];
-        if (!result?.geometry?.location) throw new Error("검색 결과를 찾지 못했어요.");
+        // Geocoder is a robust fallback for names/addresses and does not rely on
+        // the deprecated PlacesService textSearch path.
+        if (!googlePlace) {
+          const geocoder = new window.google.maps.Geocoder();
+          const response = await geocoder.geocode({ address: query });
+          const result = response?.results?.[0];
+          if (!result?.geometry?.location) throw new Error("검색 결과를 찾지 못했어요.");
+          googlePlace = {
+            place_id: result.place_id || "",
+            name: result.formatted_address || query,
+            formatted_address: result.formatted_address || query,
+            geometry: result.geometry,
+            types: result.types || []
+          };
+        }
 
-        showGooglePlaceAsPending_({
-          place_id: result.place_id || "",
-          name: result.formatted_address || query,
-          formatted_address: result.formatted_address || query,
-          geometry: result.geometry,
-          types: result.types || []
-        });
+        showGooglePlaceAsPending_(googlePlace);
         input.value = "";
       } catch (error) {
         console.warn("Atlas map search failed", error);
@@ -256,7 +274,6 @@ initMapClickToAdd_();
         button.textContent = "검색";
       }
     }
-
     button.addEventListener("click", runTextSearch_);
     input.addEventListener("keydown", (event) => {
       if (event.key !== "Enter") return;
@@ -383,18 +400,21 @@ function inferManualPlaceCategory_(googlePlace) {
   function initMapClickToAdd_() {
     if (!STATE.map || !window.google?.maps) return;
 
-    // 기존의 장소 아이콘/빈 지도 클릭도 유지합니다.
+    // Google POI 클릭은 장소 상세를 불러오고, 빈 지도 클릭은 수동 추가를 허용합니다.
     STATE.map.addListener("click", (event) => {
       if (!event?.latLng) return;
 
       if (event.placeId) {
         event.stop();
         loadGooglePlaceById_(event.placeId);
+        return;
       }
+
+      showLatLngAsPending_(event.latLng, "지도 클릭");
     });
 
-    // Atlas의 수동 마커 추가는 우클릭을 기본 동작으로 사용합니다.
-    STATE.map.addListener("rightclick", (event) => {
+    // Google Maps JS의 rightclick 이벤트는 deprecated입니다. contextmenu가 현재 권장 이벤트입니다.
+    STATE.map.addListener("contextmenu", (event) => {
       if (!event?.latLng) return;
       showLatLngAsPending_(event.latLng, "지도 우클릭");
     });
@@ -432,7 +452,6 @@ function inferManualPlaceCategory_(googlePlace) {
       placeId: ""
     };
 
-    if (isKoreaPlace(pendingPlace)) return;
     showPendingPlaceInfoWindow_(pendingPlace);
   }
 
@@ -472,7 +491,7 @@ function inferManualPlaceCategory_(googlePlace) {
 }
 
   async function addPlace_(place) {
-    if (!place || isKoreaPlace(place)) return;
+    if (!place) return;
 
     const draftPlace = { ...place };
     const button = document.querySelector('[data-atlas-add-place="true"]');
