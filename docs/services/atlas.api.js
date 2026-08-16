@@ -479,6 +479,37 @@ window.AtlasAPI = (() => {
     return data;
   }
 
+  async function updateExpense(id, expense = {}) {
+    if (!id) throw new Error("수정할 지출 ID가 없어요.");
+    const user = await getUser();
+    const tripId = expense.tripId || DEFAULT_TRIP_ID();
+    const amount = Number(expense.amount || 0);
+    const currency = String(expense.currency || "KRW").toUpperCase();
+    const rate = currency === "KRW" ? 1 : Number(expense.exchangeRate || 0);
+    const krw = currency === "KRW" ? amount : amount * rate;
+
+    const { data, error } = await db()
+      .from("atlas_expenses")
+      .update({
+        spent_at: expense.spentAt || localDateKey(new Date()),
+        category: expense.category || "기타",
+        merchant: expense.merchant || "",
+        memo: expense.memo || "",
+        original_amount: amount,
+        currency,
+        exchange_rate_to_krw: rate,
+        krw_amount: Math.round(krw),
+        payment_method: expense.paymentMethod || ""
+      })
+      .eq("id", id)
+      .eq("trip_id", tripId)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   async function deleteExpense(id) {
     const { error } = await db().from("atlas_expenses").delete().eq("id", id);
     if (error) throw error;
@@ -510,6 +541,6 @@ window.AtlasAPI = (() => {
     getFullSchedule, createSchedule, updateSchedule, deleteSchedule, updateScheduleNote, updateScheduleTime,
     getDashboardNote, saveDashboardNote,
     getPackingItems, addPackingItem, updatePackingItem, deletePackingItem,
-    getExchangeRateToKrw, getExpenses, addExpense, deleteExpense
+    getExchangeRateToKrw, getExpenses, addExpense, updateExpense, deleteExpense
   };
 })();

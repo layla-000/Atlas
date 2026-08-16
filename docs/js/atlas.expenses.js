@@ -8,6 +8,7 @@ const AtlasExpenses = (() => {
   let items = [];
   let categoryFilter = "all";
   let paymentFilter = "all";
+  let editingId = null;
 
   async function initialize() {
     await AtlasAuth.requireSession();
@@ -40,14 +41,19 @@ const AtlasExpenses = (() => {
           return;
         }
       }
-      await AtlasAPI.addExpense({
+      const payload = {
         tripId: TRIP_ID(), spentAt: f.get("spentAt"), category: f.get("category"), merchant: f.get("merchant"), memo: f.get("memo"),
         amount: f.get("amount"), currency, exchangeRate: rate, paymentMethod: f.get("paymentMethod")
-      });
+      };
+
+      if (editingId) {
+        await AtlasAPI.updateExpense(editingId, payload);
+      } else {
+        await AtlasAPI.addExpense(payload);
+      }
+
       const keepDate = f.get("spentAt");
-      event.target.reset();
-      event.target.querySelector('[name="spentAt"]').value = keepDate;
-      event.target.querySelector('[name="currency"]').value = currency;
+      resetForm(event.target, keepDate, currency);
       await reload();
     });
   }
@@ -76,7 +82,7 @@ const AtlasExpenses = (() => {
     document.getElementById("expense-list").innerHTML = visibleItems.length ? visibleItems.map((row) => `
       <div class="expense-row">
         <div><strong>${escapeHtml(row.merchant || row.category || "지출")}</strong><span>${escapeHtml(row.spent_at || "")} · ${escapeHtml(row.category || "기타")} · ${escapeHtml(paymentMethodLabel(row.payment_method))}</span>${row.memo ? `<small>${escapeHtml(row.memo)}</small>` : ""}</div>
-        <div class="expense-amount"><strong>${Number(row.krw_amount || 0).toLocaleString("ko-KR")}원</strong><span>${Number(row.original_amount || 0).toLocaleString()} ${escapeHtml(row.currency || "KRW")}</span><button onclick="AtlasExpenses.remove('${row.id}')">삭제</button></div>
+        <div class="expense-amount"><strong>${Number(row.krw_amount || 0).toLocaleString("ko-KR")}원</strong><span>${Number(row.original_amount || 0).toLocaleString()} ${escapeHtml(row.currency || "KRW")}</span><div style="display:flex;gap:6px;justify-content:flex-end;"><button onclick="AtlasExpenses.edit('${row.id}')">수정</button><button onclick="AtlasExpenses.remove('${row.id}')">삭제</button></div></div>
       </div>`).join("") : '<div class="utility-empty">조건에 맞는 지출 내역이 없어요.</div>';
   }
 
@@ -141,9 +147,56 @@ const AtlasExpenses = (() => {
     return value || "결제수단 미지정";
   }
 
-  async function remove(id) { if (!confirm("이 지출을 삭제할까요?")) return; await AtlasAPI.deleteExpense(id); await reload(); }
+  function edit(id) {
+    const item = items.find((row) => row.id === id);
+    if (!item) return alert("수정할 지출을 찾지 못했어요.");
+
+    editingId = id;
+    const form = document.getElementById("expense-form");
+    form.querySelector('[name="spentAt"]').value = item.spent_at || "";
+    form.querySelector('[name="category"]').value = item.category || "기타";
+    form.querySelector('[name="amount"]').value = Number(item.original_amount || 0);
+    form.querySelector('[name="currency"]').value = item.currency || "KRW";
+    form.querySelector('[name="exchangeRate"]').value = item.currency === "KRW" ? "" : Number(item.exchange_rate_to_krw || 0);
+    form.querySelector('[name="paymentMethod"]').value = normalizedPaymentMethod(item.payment_method) === "cash" ? "cash" : "card";
+    form.querySelector('[name="merchant"]').value = item.merchant || "";
+    form.querySelector('[name="memo"]').value = item.memo || "";
+
+    const submit = form.querySelector('button[type="submit"], button:not([type])');
+    if (submit) submit.textContent = "지출 수정";
+    ensureCancelEditButton(form);
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function ensureCancelEditButton(form) {
+    if (document.getElementById("expense-edit-cancel")) return;
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.id = "expense-edit-cancel";
+    cancel.textContent = "수정 취소";
+    cancel.addEventListener("click", () => resetForm(form));
+    const submit = form.querySelector('button[type="submit"], button:not([type])');
+    submit?.insertAdjacentElement("beforebegin", cancel);
+  }
+
+  function resetForm(form, keepDate = "", keepCurrency = "TRY") {
+    editingId = null;
+    form.reset();
+    form.querySelector('[name="spentAt"]').value = keepDate || new Date().toISOString().slice(0,10);
+    form.querySelector('[name="currency"]').value = ATLAS_EXPENSE_CURRENCIES.includes(keepCurrency) ? keepCurrency : "TRY";
+    const submit = form.querySelector('button[type="submit"], button:not([type])');
+    if (submit) submit.textContent = "지출 추가";
+    document.getElementById("expense-edit-cancel")?.remove();
+  }
+
+  async function remove(id) {
+    if (!confirm("이 지출을 삭제할까요?")) return;
+    await AtlasAPI.deleteExpense(id);
+    if (editingId === id) resetForm(document.getElementById("expense-form"));
+    await reload();
+  }
   function escapeHtml(v){return String(v||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");}
-  return { initialize, remove };
+  return { initialize, edit, remove };
 })();
 window.addEventListener("DOMContentLoaded", AtlasExpenses.initialize);
 

@@ -229,29 +229,45 @@ async function fetchScheduleFromAtlasMemory() {
   function formatEventPlaceLine(event) {
     const items = [];
     const type = String(event.type || "").toLowerCase();
+    const details = event.details || {};
 
-    if (type === "hotel") {
-      if (event.location) items.push(event.location);
-      if (event.notes) items.push(event.notes);
-    } else {
-      if (event.confirmationNumber) {
-        items.push(`예약번호 ${event.confirmationNumber}`);
-      }
+    const operator = details.airline || details.operator || details.provider || "";
+    const number = details.number || "";
+    const transportName = [operator, number].filter(Boolean).join(" ");
+    const departure = details.departurePlace || "";
+    const arrival = details.arrivalPlace || "";
+    const route = [departure, arrival].filter(Boolean).join(" → ");
 
-      if (event.notes) {
-        items.push(event.notes);
-      }
+    if (["flight", "train", "bus"].includes(type)) {
+      if (transportName) items.push(transportName);
+      if (route) items.push(route);
+      else if (event.location) items.push(event.location);
+    } else if (type === "hotel") {
+      if (details.hotelName) items.push(details.hotelName);
+      if (event.location && event.location !== details.hotelName) items.push(event.location);
+    } else if (type === "activity") {
+      if (details.provider) items.push(details.provider);
+      if (details.meetingPoint) items.push(`미팅 ${details.meetingPoint}`);
+      else if (event.location) items.push(event.location);
+    } else if (event.location) {
+      items.push(event.location);
+    } else if (event.route) {
+      items.push(event.route);
+    }
+
+    if (event.confirmationNumber) {
+      items.push(`예약번호 ${event.confirmationNumber}`);
+    }
+
+    if (event.notes) {
+      items.push(event.notes);
     }
 
     if (event.isMultiDay) {
       items.push(`${event.multiDayIndex + 1}/${event.multiDayCount}일차`);
     }
 
-    if (items.length) {
-      return items.join(" · ");
-    }
-
-    return event.location || event.route || "-";
+    return items.length ? items.join(" · ") : "-";
   }
 
   function renderError(error) {
