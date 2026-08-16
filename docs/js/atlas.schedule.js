@@ -16,12 +16,22 @@ const DATE_KEYS = [
   "2026-10-02"
 ];
 
+const ADD_SCHEDULE_TYPES = [
+  { value: "flight", label: "Flight", icon: "✈️" },
+  { value: "hotel", label: "Hotel", icon: "🏨" },
+  { value: "train", label: "Train", icon: "🚆" },
+  { value: "bus", label: "Bus", icon: "🚌" },
+  { value: "activity", label: "Activity", icon: "🎈" },
+  { value: "etc", label: "Etc", icon: "✨" }
+];
+
   const STATE = {
     days: [],
     role: "none",
     currentIndex: 0,
     touchStartX: 0,
-    touchEndX: 0
+    touchEndX: 0,
+    currentAddType: "flight"
   };
 
   async function initialize() {
@@ -29,6 +39,7 @@ const DATE_KEYS = [
     STATE.role = await AtlasAPI.getRole(TRIP_ID);
     STATE.days = buildEmptyDays();
     render();
+    renderOwnerAddButton();
 
     try {
       await reloadSchedule();
@@ -268,6 +279,170 @@ async function fetchScheduleFromAtlasMemory() {
     }
 
     return items.length ? items.join(" · ") : "-";
+  }
+
+  function renderOwnerAddButton() {
+    document.getElementById("schedule-owner-add")?.remove();
+    if (STATE.role !== "owner") return;
+
+    const button = document.createElement("button");
+    button.id = "schedule-owner-add";
+    button.type = "button";
+    button.className = "schedule-owner-add";
+    button.setAttribute("aria-label", "일정 추가");
+    button.textContent = "+";
+    button.addEventListener("click", openAddTypePicker);
+    document.body.appendChild(button);
+  }
+
+  function openAddTypePicker() {
+    if (STATE.role !== "owner") return;
+    closeAddModal();
+
+    const modal = document.createElement("div");
+    modal.id = "schedule-add-modal";
+    modal.className = "schedule-add-backdrop";
+    modal.innerHTML = `
+      <section class="schedule-add-modal schedule-add-picker" role="dialog" aria-modal="true" aria-labelledby="schedule-add-title">
+        <div class="schedule-add-head">
+          <div><div class="schedule-add-kicker">Atlas Intake</div><h2 id="schedule-add-title">Add Schedule</h2></div>
+          <button type="button" class="schedule-add-close" onclick="AtlasSchedule.closeAddModal()" aria-label="닫기">×</button>
+        </div>
+        <div class="schedule-add-type-grid">
+          ${ADD_SCHEDULE_TYPES.map((type) => `
+            <button type="button" class="schedule-add-type-card" onclick="AtlasSchedule.openAddForm('${type.value}')">
+              <span class="schedule-add-type-icon">${type.icon}</span><span>${type.label}</span>
+            </button>
+          `).join("")}
+        </div>
+      </section>`;
+    modal.addEventListener("click", (event) => { if (event.target === modal) closeAddModal(); });
+    document.body.appendChild(modal);
+  }
+
+  function openAddForm(scheduleType) {
+    if (STATE.role !== "owner") return;
+    STATE.currentAddType = ADD_SCHEDULE_TYPES.some((item) => item.value === scheduleType) ? scheduleType : "etc";
+    closeAddModal();
+
+    const typeMeta = ADD_SCHEDULE_TYPES.find((item) => item.value === STATE.currentAddType) || ADD_SCHEDULE_TYPES[5];
+    const modal = document.createElement("div");
+    modal.id = "schedule-add-modal";
+    modal.className = "schedule-add-backdrop";
+    modal.innerHTML = `
+      <section class="schedule-add-modal schedule-add-form" role="dialog" aria-modal="true" aria-labelledby="schedule-add-form-title">
+        <div class="schedule-add-head">
+          <div><div class="schedule-add-kicker">Manual Schedule</div><h2 id="schedule-add-form-title">${typeMeta.icon} ${typeMeta.label}</h2></div>
+          <button type="button" class="schedule-add-close" onclick="AtlasSchedule.closeAddModal()" aria-label="닫기">×</button>
+        </div>
+        <form id="schedule-add-form" onsubmit="AtlasSchedule.submitAdd(event)">
+          ${renderAddFields(STATE.currentAddType)}
+          <div class="schedule-add-actions">
+            <button type="button" class="schedule-add-secondary" onclick="AtlasSchedule.openAddTypePicker()">Back</button>
+            <button type="submit" class="schedule-add-primary">Save Schedule</button>
+          </div>
+        </form>
+      </section>`;
+    modal.addEventListener("click", (event) => { if (event.target === modal) closeAddModal(); });
+    document.body.appendChild(modal);
+  }
+
+  function renderAddFields(type) {
+    const selectedDate = STATE.days[STATE.currentIndex]?.date || START_DATE;
+    const startValue = `${selectedDate}T09:00`;
+    const commonTop = `
+      <input type="hidden" name="tripId" value="${TRIP_ID}">
+      <label>Title<input name="title" placeholder="일정 제목" required></label>`;
+    const confirmationField = `<label>Confirmation Number<input name="confirmationNumber" placeholder="PNR, 예약번호, 바우처 번호" required></label>`;
+    const notesField = `<label>Notes<textarea name="notes" rows="3" placeholder="준비물, 메모 등을 적어 주세요."></textarea></label>`;
+
+    if (type === "flight") return `${commonTop}
+      <div class="schedule-add-row"><label>Airline<input name="airline" placeholder="Turkish Airlines"></label><label>Flight No.<input name="number" placeholder="TK21"></label></div>
+      <div class="schedule-add-row"><label>Departure<input name="departurePlace" placeholder="ICN"></label><label>Arrival<input name="arrivalPlace" placeholder="IST"></label></div>
+      <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>Arrival Time<input name="endAt" type="datetime-local"></label></div>
+      ${confirmationField}${notesField}`;
+
+    if (type === "hotel") return `${commonTop}
+      <label>Hotel Name<input name="hotelName" placeholder="Sultan Cave Suites"></label>
+      <div class="schedule-add-row"><label>Check-in<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>Check-out<input name="endAt" type="datetime-local" required></label></div>
+      <label>Reservation No.<input name="reservationNumber" placeholder="optional"></label>
+      <label>Location<input name="location" placeholder="주소 또는 지역"></label>${notesField}`;
+
+    if (type === "train" || type === "bus") {
+      const isTrain = type === "train";
+      return `${commonTop}
+        <div class="schedule-add-row"><label>Operator<input name="operator" placeholder="${isTrain ? 'TCDD' : 'Pamukkale'}"></label><label>${isTrain ? 'Train' : 'Bus'} No.<input name="number" placeholder="optional"></label></div>
+        <div class="schedule-add-row"><label>Departure ${isTrain ? 'Station' : 'Stop'}<input name="departurePlace"></label><label>Arrival ${isTrain ? 'Station' : 'Stop'}<input name="arrivalPlace"></label></div>
+        <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>Arrival Time<input name="endAt" type="datetime-local"></label></div>
+        ${confirmationField}${notesField}`;
+    }
+
+    if (type === "activity") return `${commonTop}
+      <label>Provider<input name="provider" placeholder="optional"></label>
+      <div class="schedule-add-row"><label>Start Time<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>End Time<input name="endAt" type="datetime-local"></label></div>
+      <label>Meeting Point<input name="meetingPoint" placeholder="optional"></label>
+      ${confirmationField}${notesField}`;
+
+    return `${commonTop}
+      <div class="schedule-add-row"><label>Start Time<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>End Time<input name="endAt" type="datetime-local"></label></div>
+      <label>Location<input name="location" placeholder="장소"></label>${notesField}`;
+  }
+
+  function collectAddPayload(form) {
+    const raw = Object.fromEntries(new FormData(form).entries());
+    return {
+      type: "schedule",
+      scheduleType: STATE.currentAddType,
+      tripId: raw.tripId || TRIP_ID,
+      title: raw.title,
+      startAt: raw.startAt,
+      endAt: raw.endAt,
+      location: raw.location || "",
+      confirmationNumber: raw.confirmationNumber || raw.reservationNumber || "",
+      notes: raw.notes || "",
+      details: {
+        confirmationNumber: raw.confirmationNumber || raw.reservationNumber || "",
+        airline: raw.airline || "",
+        operator: raw.operator || "",
+        provider: raw.provider || "",
+        hotelName: raw.hotelName || "",
+        number: raw.number || "",
+        reservationNumber: raw.reservationNumber || "",
+        departurePlace: raw.departurePlace || "",
+        arrivalPlace: raw.arrivalPlace || "",
+        meetingPoint: raw.meetingPoint || ""
+      }
+    };
+  }
+
+  async function submitAdd(event) {
+    event.preventDefault();
+    if (STATE.role !== "owner") return;
+    const form = event.currentTarget;
+    const button = form.querySelector(".schedule-add-primary");
+    const payload = collectAddPayload(form);
+
+    try {
+      if (!window.AtlasAPI?.createSchedule) throw new Error("Atlas Supabase API가 준비되지 않았어요.");
+      if (button) { button.disabled = true; button.textContent = "Saving..."; }
+      const result = await AtlasAPI.createSchedule(payload);
+      if (!result || result.success === false || result.ok === false) {
+        throw new Error((result && (result.error || result.message)) || "일정 저장에 실패했어요.");
+      }
+      closeAddModal();
+      const addedDate = normalizeDateKey(payload.startAt);
+      const nextIndex = STATE.days.findIndex((day) => day.date === addedDate);
+      if (nextIndex >= 0) STATE.currentIndex = nextIndex;
+      await reloadSchedule();
+    } catch (error) {
+      console.error("Atlas schedule create failed:", error);
+      alert(error.message || "일정 저장에 실패했어요.");
+      if (button) { button.disabled = false; button.textContent = "Save Schedule"; }
+    }
+  }
+
+  function closeAddModal() {
+    document.getElementById("schedule-add-modal")?.remove();
   }
 
   function exportViewerPdf() {
@@ -797,6 +972,10 @@ function toDateKey(date) {
     closeEdit,
     saveEdit,
     remove,
+    openAddTypePicker,
+    openAddForm,
+    submitAdd,
+    closeAddModal,
     exportViewerPdf
   };
 })();
