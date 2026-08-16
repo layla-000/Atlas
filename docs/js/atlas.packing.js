@@ -1,16 +1,30 @@
 const AtlasPacking = (() => {
-  const TRIP_ID = () => window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+  const DEFAULT_TRIP_ID = () => window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+  const TRIP_ID = () => {
+    const fromUrl = new URLSearchParams(window.location.search).get("trip");
+    return String(fromUrl || DEFAULT_TRIP_ID()).trim() || DEFAULT_TRIP_ID();
+  };
   let items = [];
 
   async function initialize() {
     await AtlasAuth.requireSession();
-    const role = await AtlasAPI.getRole(TRIP_ID());
+    const tripId = TRIP_ID();
+    const [role, trip] = await Promise.all([
+      AtlasAPI.getRole(tripId),
+      AtlasAPI.getCurrentTrip(tripId).catch(() => null)
+    ]);
+    renderTripHeading(trip, tripId);
     if (role !== "owner") {
       document.getElementById("packing-app").innerHTML = '<div class="utility-empty">Packing은 Owner 전용이에요.</div>';
       return;
     }
     bind();
     await reload();
+  }
+
+  function renderTripHeading(trip, tripId) {
+    const title = document.getElementById("packing-trip-name");
+    if (title) title.textContent = `${trip?.name || tripId} · Owner only`;
   }
 
   function bind() {

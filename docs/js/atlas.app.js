@@ -1,6 +1,8 @@
 const Atlas = (() => {
   const STATE = {
     trip: null,
+    trips: [],
+    tripId: "",
     places: [],
     brief: null,
     travelStatus: null,
@@ -14,8 +16,16 @@ const Atlas = (() => {
     console.log("Atlas initializing...");
 
     await AtlasAuth.requireSession();
-    STATE.role = await AtlasAPI.getRole();
-    STATE.trip = await AtlasAPI.getCurrentTrip();
+    STATE.trips = await AtlasAPI.getAvailableTrips();
+    const savedTripId = localStorage.getItem("atlas.activeTripId") || "";
+    const defaultTripId = window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+    const selected = STATE.trips.find((trip) => trip.id === savedTripId)
+      || STATE.trips.find((trip) => trip.id === defaultTripId)
+      || STATE.trips[0]
+      || null;
+    STATE.tripId = selected?.id || defaultTripId;
+    STATE.trip = selected || await AtlasAPI.getCurrentTrip(STATE.tripId);
+    STATE.role = selected?.role || await AtlasAPI.getRole(STATE.tripId);
 
     if (STATE.role === "none") {
       document.getElementById("atlas-app").innerHTML = `
@@ -29,12 +39,18 @@ const Atlas = (() => {
 
     render();
     bindEvents();
-    if (STATE.role === "owner") await refreshDashboardNote();
-    await initializeMap();
-    await refreshAtlasBrief();
-    await refreshTravelStatus();
 
-    if (window.AtlasCapture && STATE.role === "owner") AtlasCapture.initialize();
+    if (isTravelTrip()) {
+      if (STATE.role === "owner") await refreshDashboardNote();
+      await initializeMap();
+      await refreshAtlasBrief();
+      await refreshTravelStatus();
+      if (window.AtlasCapture && STATE.role === "owner") AtlasCapture.initialize();
+    } else {
+      await refreshTodayPlan([]);
+      const links = await AtlasAPI.getDriveLinks(STATE.tripId).catch(() => ({}));
+      renderActions(links);
+    }
 
     STATE.initialized = true;
     console.log("Atlas ready.");
@@ -42,26 +58,50 @@ const Atlas = (() => {
 
   function render() {
     renderHeader();
-    renderMap();
+    document.getElementById("atlas-dashboard").classList.toggle("is-compact-trip", !isTravelTrip());
     renderTimeline([]);
-    renderBriefPlaceholder();
-    void renderStatus({});
     renderActions({});
-    if (STATE.role === "owner") renderNotes();
-    else document.getElementById("atlas-notes").innerHTML = "";
+
+    if (isTravelTrip()) {
+      renderMap();
+      renderBriefPlaceholder();
+      void renderStatus({});
+      if (STATE.role === "owner") renderNotes();
+      else document.getElementById("atlas-notes").innerHTML = "";
+    } else {
+      ["atlas-brief", "atlas-map", "atlas-status", "atlas-notes"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = "";
+      });
+    }
+  }
+
+  function isTravelTrip() {
+    return STATE.tripId === "trip_turkiye_2026";
   }
 
   function renderHeader() {
+    const options = STATE.trips.map((trip) => `
+      <option value="${escapeHtml(trip.id)}" ${trip.id === STATE.tripId ? "selected" : ""}>${escapeHtml(trip.name || trip.id)}</option>
+    `).join("");
+
     document.getElementById("atlas-header").innerHTML = `
-      <div style="display:flex;align-items:flex-start;gap:14px">
+      <div class="atlas-header-row">
         <div>
           <h1 class="atlas-title">ATLAS</h1>
           <p class="atlas-subtitle">${escapeHtml(STATE.trip?.name || "Travel Companion")} · ${STATE.role === "owner" ? "Owner" : "Viewer"}</p>
         </div>
-        <button class="atlas-auth-logout" onclick="AtlasAuth.signOut()">로그아웃</button>
+        <div class="atlas-header-controls">
+          <label class="atlas-trip-picker" aria-label="Trip 선택">
+            <span>Trip</span>
+            <select id="atlas-trip-select">${options}</select>
+          </label>
+          <button class="atlas-auth-logout" onclick="AtlasAuth.signOut()">로그아웃</button>
+        </div>
       </div>
     `;
   }
+
   function renderBriefPlaceholder() {
     renderBriefTitleOnly({ title: "오늘의 브리핑을 준비하고 있어요." });
   }
@@ -84,7 +124,7 @@ const Atlas = (() => {
   async function refreshAtlasBrief() {
     if (!window.AtlasAPI) return;
 
-    const brief = await AtlasAPI.getBrief();
+    const brief = await AtlasAPI.getBrief(STATE.tripId);
     console.log("ATLAS BRIEF RAW", brief);
     STATE.brief = brief || {};
 
@@ -108,11 +148,10 @@ const Atlas = (() => {
     if (!window.AtlasAPI || !AtlasAPI.getFullSchedule) return [];
 
     try {
-      const result = await AtlasAPI.getFullSchedule({
-        tripId: "trip_turkiye_2026",
-        startDate: "2026-09-23",
-        endDate: "2026-10-02"
-      });
+      const params = { tripId: STATE.tripId };
+      if (STATE.trip?.start_date) params.startDate = STATE.trip.start_date;
+      if (STATE.trip?.end_date) params.endDate = STATE.trip.end_date;
+      const result = await AtlasAPI.getFullSchedule(params);
 
       const events = normalizeDashboardScheduleEvents(result.schedule || result.events || []);
       if (!events.length) return [];
@@ -199,7 +238,7 @@ const Atlas = (() => {
   async function refreshTravelStatus() {
     if (!window.AtlasAPI) return;
 
-    const travelStatus = await AtlasAPI.getTravelStatus();
+    const travelStatus = await AtlasAPI.getTravelStatus(STATE.tripId);
     STATE.travelStatus = travelStatus || {};
   }
 
@@ -237,7 +276,7 @@ const Atlas = (() => {
   async function refreshDashboardNote() {
     if (STATE.role !== "owner") return;
     try {
-      const result = await AtlasAPI.getDashboardNote({ tripId: "trip_turkiye_2026" });
+      const result = await AtlasAPI.getDashboardNote({ tripId: STATE.tripId });
       const input = document.getElementById("atlas-notes-input");
       if (input) input.value = result?.note || "";
       setAtlasNotesMeta("Layla Hub에 자동 저장돼요.");
@@ -254,7 +293,7 @@ const Atlas = (() => {
     window.clearTimeout(STATE.dashboardNoteSaveTimer);
     STATE.dashboardNoteSaveTimer = window.setTimeout(async () => {
       try {
-        await AtlasAPI.saveDashboardNote({ tripId: "trip_turkiye_2026", note });
+        await AtlasAPI.saveDashboardNote({ tripId: STATE.tripId, note });
         setAtlasNotesMeta("Layla Hub에 저장됐어요.");
       } catch (error) {
         console.warn("Atlas note save failed", error);
@@ -360,7 +399,7 @@ const Atlas = (() => {
 async function getCurrentWeatherStatusItem() {
   let place = null;
   try {
-    const state = await AtlasAPI.getTripState();
+    const state = await AtlasAPI.getTripState(STATE.tripId);
     if (state && Number.isFinite(Number(state.current_lat)) && Number.isFinite(Number(state.current_lng))) {
       place = {
         title: state.current_city || "현재 위치",
@@ -461,23 +500,24 @@ async function refreshWeatherStatusItem() {
 
  function renderActions(links) {
   links = links || {};
+  const tripQuery = `?trip=${encodeURIComponent(STATE.tripId)}`;
   const cards = [
-    renderQuickActionImageCard({ label: "Schedule", url: "schedule.html", imageSrc: "assets/images/quick-actions/schedule.png", imageAlt: "Schedule" })
+    renderQuickActionImageCard({ label: "Schedule", url: `schedule.html${tripQuery}`, imageSrc: "assets/images/quick-actions/schedule.png", imageAlt: "Schedule" })
   ];
 
   if (STATE.role === "owner") {
     cards.push(
-      renderQuickActionImageCard({
-        label: "Expenses",
-        url: "expenses.html",
-        imageSrc: "assets/images/quick-actions/money.png",
-        imageAlt: "Expenses"
-      }),
+      renderQuickActionImageCard({ label: "Expenses", url: `expenses.html${tripQuery}`, imageSrc: "assets/images/quick-actions/money.png", imageAlt: "Expenses" }),
       renderQuickActionImageCard({ label: "Documents", url: links.documents || "", imageSrc: "assets/images/quick-actions/documents.png", imageAlt: "Documents" }),
-      renderQuickActionImageCard({ label: "Packing", url: "packing.html", imageSrc: "assets/images/quick-actions/packing.png", imageAlt: "Packing" }),
-      renderQuickActionImageCard({ label: "Boarding Pass", url: links.boarding_pass || "", imageSrc: "assets/images/quick-actions/bp.png", imageAlt: "Boarding Pass" }),
-      renderQuickActionImageCard({ label: "Hotel", url: links.hotel || "", imageSrc: "assets/images/quick-actions/hotel.png", imageAlt: "Hotel" })
+      renderQuickActionImageCard({ label: "Packing", url: `packing.html${tripQuery}`, imageSrc: "assets/images/quick-actions/packing.png", imageAlt: "Packing" })
     );
+
+    if (isTravelTrip()) {
+      cards.push(
+        renderQuickActionImageCard({ label: "Boarding Pass", url: links.boarding_pass || "", imageSrc: "assets/images/quick-actions/bp.png", imageAlt: "Boarding Pass" }),
+        renderQuickActionImageCard({ label: "Hotel", url: links.hotel || "", imageSrc: "assets/images/quick-actions/hotel.png", imageAlt: "Hotel" })
+      );
+    }
   }
 
   document.getElementById("atlas-actions").innerHTML = `
@@ -517,8 +557,8 @@ async function refreshWeatherStatusItem() {
 
     if (window.AtlasAPI && AtlasAPI.getMapPlaces) {
       try {
-        places = await AtlasAPI.getMapPlaces();
-        const sharedState = await AtlasAPI.getTripState();
+        places = await AtlasAPI.getMapPlaces(STATE.tripId);
+        const sharedState = await AtlasAPI.getTripState(STATE.tripId);
         if (sharedState && Number.isFinite(Number(sharedState.current_lat)) && Number.isFinite(Number(sharedState.current_lng))) {
           places = [{
             id: "atlas-current-location",
@@ -550,6 +590,13 @@ async function refreshWeatherStatusItem() {
   }
 
   function bindEvents() {
+    document.getElementById("atlas-trip-select")?.addEventListener("change", (event) => {
+      const nextTripId = String(event.target.value || "").trim();
+      if (!nextTripId || nextTripId === STATE.tripId) return;
+      localStorage.setItem("atlas.activeTripId", nextTripId);
+      window.location.reload();
+    });
+
     document.addEventListener("click", (event) => {
       const button = event.target.closest(".atlas-plan-item[data-place]");
       if (!button) return;
@@ -577,7 +624,7 @@ async function refreshWeatherStatusItem() {
         city = locality?.long_name || result?.results?.[0]?.formatted_address || city;
       }
     } catch (error) { console.warn("Atlas reverse geocode failed", error); }
-    await AtlasAPI.updateTripState({ city, lat: place.lat, lng: place.lng });
+    await AtlasAPI.updateTripState({ tripId: STATE.tripId, city, lat: place.lat, lng: place.lng });
     const shared = document.getElementById("atlas-shared-location");
     if (shared) shared.textContent = `현재 공유 위치 · ${city}`;
     await refreshWeatherStatusItem();

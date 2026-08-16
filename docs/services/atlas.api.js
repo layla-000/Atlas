@@ -22,6 +22,35 @@ window.AtlasAPI = (() => {
     return data || null;
   }
 
+  async function getAvailableTrips() {
+    const user = await getUser();
+    const { data: memberships, error: membershipError } = await db()
+      .from("atlas_trip_members")
+      .select("trip_id,role")
+      .eq("user_id", user.id);
+    if (membershipError) throw membershipError;
+
+    const rows = memberships || [];
+    const tripIds = rows.map((row) => row.trip_id).filter(Boolean);
+    if (!tripIds.length) return [];
+
+    const { data: trips, error: tripError } = await db()
+      .from("atlas_trips")
+      .select("id,name,start_date,end_date,time_zone,home_time_zone")
+      .in("id", tripIds);
+    if (tripError) throw tripError;
+
+    const roleByTrip = new Map(rows.map((row) => [row.trip_id, row.role || "none"]));
+    return (trips || [])
+      .map((trip) => ({ ...trip, role: roleByTrip.get(trip.id) || "none" }))
+      .sort((a, b) => {
+        const aDate = a.start_date || "9999-12-31";
+        const bDate = b.start_date || "9999-12-31";
+        if (aDate !== bDate) return aDate.localeCompare(bDate);
+        return String(a.name || a.id).localeCompare(String(b.name || b.id), "ko");
+      });
+  }
+
   async function getDriveLinks(tripId = DEFAULT_TRIP_ID()) {
     const role = await getRole(tripId);
     if (role !== "owner") return {};
@@ -48,9 +77,9 @@ window.AtlasAPI = (() => {
     return data?.role || "none";
   }
 
-  async function getBrief() {
-    const trip = await getCurrentTrip();
-    const tripId = trip?.id || DEFAULT_TRIP_ID();
+  async function getBrief(tripId = DEFAULT_TRIP_ID()) {
+    const trip = await getCurrentTrip(tripId);
+    tripId = trip?.id || tripId || DEFAULT_TRIP_ID();
     const [scheduleResult, driveLinks] = await Promise.all([
       getFullSchedule({ tripId }),
       getDriveLinks(tripId)
@@ -74,8 +103,8 @@ window.AtlasAPI = (() => {
 
   async function getMemory() { return []; }
 
-  async function getTravelStatus() {
-    const trip = await getCurrentTrip();
+  async function getTravelStatus(tripId = DEFAULT_TRIP_ID()) {
+    const trip = await getCurrentTrip(tripId);
     return { status: "ready", title: "Travel Status", time_card: await buildTimeCard(trip), items: [] };
   }
 
@@ -536,7 +565,7 @@ window.AtlasAPI = (() => {
   }
 
   return {
-    getCurrentTrip, getDriveLinks, getRole, getBrief, getMemory, getTravelStatus, getCurrentWeather,
+    getCurrentTrip, getAvailableTrips, getDriveLinks, getRole, getBrief, getMemory, getTravelStatus, getCurrentWeather,
     getTripState, updateTripState, getMapPlaces, saveManualMapPlace, removeManualMapPlace,
     getFullSchedule, createSchedule, updateSchedule, deleteSchedule, updateScheduleNote, updateScheduleTime,
     getDashboardNote, saveDashboardNote,

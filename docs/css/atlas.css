@@ -1210,3 +1210,102 @@ button {
 
 /* Atlas Supabase refactor additions */
 .atlas-location-share{margin-left:auto;border:1px solid rgba(54,199,183,.35);border-radius:999px;padding:7px 11px;background:rgba(54,199,183,.12);color:var(--atlas-teal);font-weight:700;cursor:pointer}.atlas-shared-location{min-height:20px;margin:-4px 0 10px;color:var(--atlas-text-muted);font-size:12px}.atlas-action-card-text{display:grid;place-items:center;gap:4px;color:var(--atlas-text);text-decoration:none;font-size:32px}.atlas-action-card-text span{font-size:12px;color:var(--atlas-text-muted)}
+
+/* ============================================================
+   Multi-trip switcher / compact trip dashboard
+   ============================================================ */
+.atlas-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.atlas-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.atlas-trip-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--atlas-border);
+    border-radius: 12px;
+    background: rgba(31, 36, 35, 0.82);
+    color: var(--atlas-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.atlas-trip-picker select {
+    min-width: 150px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--atlas-text);
+    font: inherit;
+    cursor: pointer;
+}
+
+.atlas-trip-picker option {
+    color: #111;
+}
+
+#atlas-dashboard.is-compact-trip {
+    grid-template-areas:
+        "plan"
+        "actions";
+}
+
+#atlas-dashboard.is-compact-trip #atlas-brief,
+#atlas-dashboard.is-compact-trip #atlas-map,
+#atlas-dashboard.is-compact-trip #atlas-status,
+#atlas-dashboard.is-compact-trip #atlas-notes {
+    display: none;
+}
+
+#atlas-dashboard.is-compact-trip #atlas-plan,
+#atlas-dashboard.is-compact-trip #atlas-actions {
+    display: block;
+}
+
+@media (min-width: 960px) {
+    #atlas-dashboard.is-compact-trip {
+        min-height: 0;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+            "plan"
+            "actions";
+        max-width: 980px;
+    }
+
+    #atlas-dashboard.is-compact-trip #atlas-plan .atlas-card-inner,
+    #atlas-dashboard.is-compact-trip #atlas-actions .atlas-card-inner {
+        padding: 26px;
+    }
+}
+
+@media (max-width: 680px) {
+    .atlas-header-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .atlas-header-controls {
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .atlas-trip-picker {
+        flex: 1;
+    }
+
+    .atlas-trip-picker select {
+        width: 100%;
+        min-width: 0;
+    }
+}

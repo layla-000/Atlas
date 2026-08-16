@@ -4,7 +4,11 @@ const ATLAS_EXPENSE_CURRENCIES = [
 ];
 
 const AtlasExpenses = (() => {
-  const TRIP_ID = () => window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+  const DEFAULT_TRIP_ID = () => window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+  const TRIP_ID = () => {
+    const fromUrl = new URLSearchParams(window.location.search).get("trip");
+    return String(fromUrl || DEFAULT_TRIP_ID()).trim() || DEFAULT_TRIP_ID();
+  };
   let items = [];
   let categoryFilter = "all";
   let paymentFilter = "all";
@@ -12,6 +16,8 @@ const AtlasExpenses = (() => {
 
   async function initialize() {
     await AtlasAuth.requireSession();
+    const backLink = document.querySelector('.utility-topbar a');
+    if (backLink) backLink.href = `index.html`;
     const role = await AtlasAPI.getRole(TRIP_ID());
     if (role !== "owner") {
       document.getElementById("expenses-app").innerHTML = '<div class="utility-empty">가계부는 Owner 전용이에요.</div>';
@@ -19,6 +25,10 @@ const AtlasExpenses = (() => {
     }
     const dateInput = document.querySelector('[name="spentAt"]');
     if (dateInput) dateInput.value = new Date().toISOString().slice(0,10);
+    if (TRIP_ID() === "trip_cha_2026") {
+      const currencyInput = document.querySelector('[name="currency"]');
+      if (currencyInput) currencyInput.value = "KRW";
+    }
     bind();
     bindFilters();
     await reload();

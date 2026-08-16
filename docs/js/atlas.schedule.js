@@ -1,20 +1,9 @@
 const AtlasSchedule = (() => {
-const START_DATE = "2026-09-23";
-const END_DATE = "2026-10-02";
-const TRIP_ID = "trip_turkiye_2026";
-
-const DATE_KEYS = [
-  "2026-09-23",
-  "2026-09-24",
-  "2026-09-25",
-  "2026-09-26",
-  "2026-09-27",
-  "2026-09-28",
-  "2026-09-29",
-  "2026-09-30",
-  "2026-10-01",
-  "2026-10-02"
-];
+const DEFAULT_TRIP_ID = () => window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+const TRIP_ID = () => {
+  const fromUrl = new URLSearchParams(window.location.search).get("trip");
+  return String(fromUrl || DEFAULT_TRIP_ID()).trim() || DEFAULT_TRIP_ID();
+};
 
 const ADD_SCHEDULE_TYPES = [
   { value: "flight", label: "Flight", icon: "✈️" },
@@ -28,6 +17,10 @@ const ADD_SCHEDULE_TYPES = [
   const STATE = {
     days: [],
     role: "none",
+    trip: null,
+    startDate: "",
+    endDate: "",
+    dateKeys: [],
     currentIndex: 0,
     touchStartX: 0,
     touchEndX: 0,
@@ -36,7 +29,19 @@ const ADD_SCHEDULE_TYPES = [
 
   async function initialize() {
     await AtlasAuth.requireSession();
-    STATE.role = await AtlasAPI.getRole(TRIP_ID);
+    const tripId = TRIP_ID();
+    const [role, trip] = await Promise.all([
+      AtlasAPI.getRole(tripId),
+      AtlasAPI.getCurrentTrip(tripId).catch(() => null)
+    ]);
+    STATE.role = role;
+    STATE.trip = trip;
+    setDateRange(trip?.start_date || "", trip?.end_date || "");
+    if (!STATE.dateKeys.length) {
+      const today = toDateKey(new Date());
+      setDateRange(today, today);
+    }
+    updatePageHeading();
     STATE.days = buildEmptyDays();
     render();
     renderOwnerAddButton();
@@ -51,7 +56,13 @@ const ADD_SCHEDULE_TYPES = [
 
   async function reloadSchedule() {
     const events = await fetchScheduleFromAtlasMemory();
+    if (!STATE.trip?.start_date || !STATE.trip?.end_date) {
+      const eventDates = events.map((event) => event.date).filter(Boolean).sort();
+      if (eventDates.length) setDateRange(eventDates[0], eventDates[eventDates.length - 1]);
+    }
+    STATE.days = buildEmptyDays();
     applyEvents(events);
+    updatePageHeading();
     render();
   }
 
@@ -60,11 +71,10 @@ async function fetchScheduleFromAtlasMemory() {
     throw new Error("AtlasAPI.getFullSchedule가 연결되어 있지 않아요.");
   }
 
-  const result = await AtlasAPI.getFullSchedule({
-    tripId: TRIP_ID,
-    startDate: START_DATE,
-    endDate: END_DATE
-  });
+  const params = { tripId: TRIP_ID() };
+  if (STATE.trip?.start_date) params.startDate = STATE.trip.start_date;
+  if (STATE.trip?.end_date) params.endDate = STATE.trip.end_date;
+  const result = await AtlasAPI.getFullSchedule(params);
 
   return normalizeEvents(result.schedule || result.events || []);
 }
@@ -72,7 +82,7 @@ async function fetchScheduleFromAtlasMemory() {
   function normalizeEvents(events) {
     return (Array.isArray(events) ? events : [])
       .flatMap((event) => expandEventAcrossDates(event))
-      .filter((event) => event.date >= START_DATE && event.date <= END_DATE)
+      .filter((event) => !STATE.trip?.start_date || !STATE.trip?.end_date || (event.date >= STATE.startDate && event.date <= STATE.endDate))
       .sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         return (a.time || "99:99").localeCompare(b.time || "99:99");
@@ -348,10 +358,10 @@ async function fetchScheduleFromAtlasMemory() {
   }
 
   function renderAddFields(type) {
-    const selectedDate = STATE.days[STATE.currentIndex]?.date || START_DATE;
+    const selectedDate = STATE.days[STATE.currentIndex]?.date || STATE.startDate || toDateKey(new Date());
     const startValue = `${selectedDate}T09:00`;
     const commonTop = `
-      <input type="hidden" name="tripId" value="${TRIP_ID}">
+      <input type="hidden" name="tripId" value="${TRIP_ID()}">
       <label>Title<input name="title" placeholder="일정 제목" required></label>`;
     const confirmationField = `<label>Confirmation Number<input name="confirmationNumber" placeholder="PNR, 예약번호, 바우처 번호" required></label>`;
     const notesField = `<label>Notes<textarea name="notes" rows="3" placeholder="준비물, 메모 등을 적어 주세요."></textarea></label>`;
@@ -393,7 +403,7 @@ async function fetchScheduleFromAtlasMemory() {
     return {
       type: "schedule",
       scheduleType: STATE.currentAddType,
-      tripId: raw.tripId || TRIP_ID,
+      tripId: raw.tripId || TRIP_ID(),
       title: raw.title,
       startAt: raw.startAt,
       endAt: raw.endAt,
@@ -607,7 +617,10 @@ async function fetchScheduleFromAtlasMemory() {
   }
 
   function formatPdfDateRange() {
-    return `${START_DATE.replaceAll("-", ".")} - ${END_DATE.replaceAll("-", ".")}`;
+    if (!STATE.startDate || !STATE.endDate) return "일정 날짜 미정";
+    return STATE.startDate === STATE.endDate
+      ? STATE.startDate.replaceAll("-", ".")
+      : `${STATE.startDate.replaceAll("-", ".")} - ${STATE.endDate.replaceAll("-", ".")}`;
   }
 
   function renderError(error) {
@@ -684,7 +697,7 @@ async function fetchScheduleFromAtlasMemory() {
     try {
       await AtlasAPI.updateSchedule({
         id: data.id,
-        tripId: TRIP_ID,
+        tripId: TRIP_ID(),
         scheduleType: data.scheduleType,
         title: data.title.trim(),
         startAt: data.startAt,
@@ -709,7 +722,7 @@ async function fetchScheduleFromAtlasMemory() {
     if (!event || STATE.role !== "owner") return;
     if (!confirm(`“${event.title}” 일정을 삭제할까요?`)) return;
     try {
-      await AtlasAPI.deleteSchedule({ id: event.id, tripId: TRIP_ID });
+      await AtlasAPI.deleteSchedule({ id: event.id, tripId: TRIP_ID() });
       closeEdit();
       await reloadSchedule();
     } catch (error) {
@@ -829,8 +842,33 @@ async function fetchScheduleFromAtlasMemory() {
     }
   }
 
+function setDateRange(startDate, endDate) {
+  const start = normalizeDateKey(startDate);
+  const end = normalizeDateKey(endDate) || start;
+  if (!start || !end) {
+    STATE.startDate = "";
+    STATE.endDate = "";
+    STATE.dateKeys = [];
+    return;
+  }
+  STATE.startDate = start;
+  STATE.endDate = end < start ? start : end;
+  STATE.dateKeys = listDateKeysBetween(STATE.startDate, STATE.endDate);
+  STATE.currentIndex = Math.min(STATE.currentIndex, Math.max(0, STATE.dateKeys.length - 1));
+}
+
+function updatePageHeading() {
+  const name = STATE.trip?.name || TRIP_ID();
+  const subtitle = document.getElementById("schedule-trip-name");
+  const range = document.getElementById("schedule-trip-range");
+  const back = document.querySelector(".schedule-topbar .back-link");
+  if (subtitle) subtitle.textContent = name;
+  if (range) range.textContent = formatPdfDateRange();
+  if (back) back.href = `./index.html`;
+}
+
 function buildEmptyDays() {
-  return DATE_KEYS.map((dateKey) => {
+  return STATE.dateKeys.map((dateKey) => {
     const parts = dateKey.split("-").map(Number);
     const date = new Date(parts[0], parts[1] - 1, parts[2]);
 
