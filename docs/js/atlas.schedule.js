@@ -347,28 +347,31 @@ async function fetchScheduleFromAtlasMemory() {
     .pdf-brand { font-size: 18pt; font-weight: 900; letter-spacing: .12em; }
     .pdf-sub { margin-top: 1mm; font-size: 8pt; color: #64748b; }
     .pdf-range { text-align: right; font-size: 9pt; font-weight: 750; color: #334155; }
-    .pdf-grid { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 2.4mm; }
-    .pdf-day { min-width: 0; border: 1px solid #d8dee9; border-radius: 3mm; overflow: hidden; display: flex; flex-direction: column; break-inside: avoid; }
+    .pdf-grid { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 2.4mm; overflow: hidden; }
+    .pdf-day { min-width: 0; min-height: 0; border: 1px solid #d8dee9; border-radius: 3mm; overflow: hidden; display: flex; flex-direction: column; break-inside: avoid; }
     .pdf-day-head { display: flex; align-items: center; justify-content: space-between; gap: 2mm; background: #f3f6fb; padding: 2.2mm 2.5mm; border-bottom: 1px solid #d8dee9; }
     .pdf-day-head strong { display: block; font-size: 6.5pt; color: #5365d8; letter-spacing: .04em; }
     .pdf-day-head h2 { margin: .5mm 0 0; font-size: 9pt; line-height: 1.1; }
     .pdf-day-head span { font-size: 6.5pt; color: #64748b; white-space: nowrap; }
-    .pdf-events { flex: 1; padding: 1.6mm 2.2mm; overflow: hidden; }
-    .pdf-event { display: grid; grid-template-columns: 12mm 1fr; gap: 1.3mm; padding: 1.4mm 0; border-bottom: 1px solid #e8ecf2; }
+    .pdf-events { flex: 1 1 0; min-height: 0; padding: 1.35mm 2mm; overflow: hidden; }
+    .pdf-event { display: grid; grid-template-columns: 11.5mm minmax(0, 1fr); gap: 1.15mm; padding: 1.15mm 0; border-bottom: 1px solid #e8ecf2; }
     .pdf-event:last-child { border-bottom: 0; }
-    .pdf-time { font-size: 7.2pt; font-weight: 900; color: #111827; white-space: nowrap; }
-    .pdf-time small { display: block; margin-top: .4mm; font-size: 5.5pt; color: #64748b; font-weight: 650; }
-    .pdf-title { font-size: 7.2pt; line-height: 1.22; font-weight: 850; overflow-wrap: anywhere; }
-    .pdf-meta { margin-top: .5mm; font-size: 5.8pt; line-height: 1.25; color: #536174; overflow-wrap: anywhere; }
-    .pdf-type { display: inline-block; margin-top: .7mm; padding: .25mm 1mm; border-radius: 99px; background: #edf1ff; color: #5061d4; font-size: 5.2pt; font-weight: 850; }
+    .pdf-time { font-size: 7pt; font-weight: 900; color: #111827; white-space: nowrap; }
+    .pdf-time small { display: block; margin-top: .3mm; font-size: 5.2pt; color: #64748b; font-weight: 650; }
+    .pdf-title { font-size: 6.9pt; line-height: 1.18; font-weight: 850; overflow-wrap: anywhere; }
+    .pdf-meta { margin-top: .35mm; font-size: 5.5pt; line-height: 1.2; color: #536174; overflow-wrap: anywhere; }
+    .pdf-type { display: inline-block; margin-top: .5mm; padding: .2mm .9mm; border-radius: 99px; background: #edf1ff; color: #5061d4; font-size: 5pt; font-weight: 850; }
     .pdf-empty { padding: 5mm 1mm; text-align: center; color: #94a3b8; font-size: 7pt; }
     .pdf-foot { display: flex; justify-content: space-between; margin-top: 2mm; padding: 0 1mm; color: #94a3b8; font-size: 5.5pt; }
     @media screen {
       body { background: #d9dee8; padding: 12px; }
-      .pdf-page { width: 297mm; min-height: 210mm; margin: 0 auto; padding: 7mm; background: #fff; box-shadow: 0 8px 30px rgba(0,0,0,.18); }
+      .pdf-page { width: 297mm; height: 210mm; min-height: 0; margin: 0 auto; padding: 7mm; overflow: hidden; background: #fff; box-shadow: 0 8px 30px rgba(0,0,0,.18); }
     }
     @media print {
-      .pdf-page { height: 196mm; min-height: 196mm; overflow: hidden; }
+      html, body { width: 100%; height: 100%; overflow: hidden; }
+      .pdf-page { width: 100%; height: 196mm; min-height: 0; max-height: 196mm; overflow: hidden; }
+      .pdf-grid { min-height: 0; }
+      .pdf-day, .pdf-events { min-height: 0; }
     }
   </style>
 </head>
