@@ -270,6 +270,168 @@ async function fetchScheduleFromAtlasMemory() {
     return items.length ? items.join(" · ") : "-";
   }
 
+  function exportViewerPdf() {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("PDF 화면을 열지 못했어요. 이 사이트의 팝업을 허용한 뒤 다시 눌러주세요.");
+      return;
+    }
+
+    const publicDays = STATE.days.map((day, index) => ({
+      ...day,
+      dayNumber: index + 1,
+      events: day.events.map(toViewerPublicEvent)
+    }));
+
+    printWindow.document.open();
+    printWindow.document.write(buildViewerPrintDocument(publicDays));
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.setTimeout(() => printWindow.print(), 250);
+  }
+
+  function toViewerPublicEvent(event) {
+    const details = event.details || {};
+    return {
+      date: event.date,
+      time: event.time || "",
+      endTime: event.endTime || "",
+      title: event.title || "일정",
+      location: event.location || "",
+      type: event.type || "etc",
+      details: {
+        airline: details.airline || "",
+        operator: details.operator || "",
+        provider: details.provider || "",
+        number: details.number || "",
+        departurePlace: details.departurePlace || "",
+        arrivalPlace: details.arrivalPlace || "",
+        hotelName: details.hotelName || "",
+        meetingPoint: details.meetingPoint || ""
+      },
+      isMultiDay: Boolean(event.isMultiDay),
+      multiDayIndex: Number(event.multiDayIndex || 0),
+      multiDayCount: Number(event.multiDayCount || 0)
+    };
+  }
+
+  function buildViewerPrintDocument(days) {
+    const dayCards = days.map((day) => `
+      <section class="pdf-day">
+        <header class="pdf-day-head">
+          <div>
+            <strong>DAY ${day.dayNumber}</strong>
+            <h2>${escapeHtml(formatKoreanDate(day.date))}</h2>
+          </div>
+          <span>${day.events.length} 일정</span>
+        </header>
+        <div class="pdf-events">
+          ${day.events.length ? day.events.map(renderViewerPdfEvent).join("") : '<div class="pdf-empty">등록된 일정 없음</div>'}
+        </div>
+      </section>
+    `).join("");
+
+    return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATLAS · Viewer Schedule</title>
+  <style>
+    @page { size: A4 landscape; margin: 7mm; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #111827; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .pdf-page { width: 100%; min-height: 190mm; display: flex; flex-direction: column; }
+    .pdf-head { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 2px solid #111827; padding: 0 1mm 3mm; margin-bottom: 3mm; }
+    .pdf-brand { font-size: 18pt; font-weight: 900; letter-spacing: .12em; }
+    .pdf-sub { margin-top: 1mm; font-size: 8pt; color: #64748b; }
+    .pdf-range { text-align: right; font-size: 9pt; font-weight: 750; color: #334155; }
+    .pdf-grid { flex: 1; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 2.4mm; }
+    .pdf-day { min-width: 0; border: 1px solid #d8dee9; border-radius: 3mm; overflow: hidden; display: flex; flex-direction: column; break-inside: avoid; }
+    .pdf-day-head { display: flex; align-items: center; justify-content: space-between; gap: 2mm; background: #f3f6fb; padding: 2.2mm 2.5mm; border-bottom: 1px solid #d8dee9; }
+    .pdf-day-head strong { display: block; font-size: 6.5pt; color: #5365d8; letter-spacing: .04em; }
+    .pdf-day-head h2 { margin: .5mm 0 0; font-size: 9pt; line-height: 1.1; }
+    .pdf-day-head span { font-size: 6.5pt; color: #64748b; white-space: nowrap; }
+    .pdf-events { flex: 1; padding: 1.6mm 2.2mm; overflow: hidden; }
+    .pdf-event { display: grid; grid-template-columns: 12mm 1fr; gap: 1.3mm; padding: 1.4mm 0; border-bottom: 1px solid #e8ecf2; }
+    .pdf-event:last-child { border-bottom: 0; }
+    .pdf-time { font-size: 7.2pt; font-weight: 900; color: #111827; white-space: nowrap; }
+    .pdf-time small { display: block; margin-top: .4mm; font-size: 5.5pt; color: #64748b; font-weight: 650; }
+    .pdf-title { font-size: 7.2pt; line-height: 1.22; font-weight: 850; overflow-wrap: anywhere; }
+    .pdf-meta { margin-top: .5mm; font-size: 5.8pt; line-height: 1.25; color: #536174; overflow-wrap: anywhere; }
+    .pdf-type { display: inline-block; margin-top: .7mm; padding: .25mm 1mm; border-radius: 99px; background: #edf1ff; color: #5061d4; font-size: 5.2pt; font-weight: 850; }
+    .pdf-empty { padding: 5mm 1mm; text-align: center; color: #94a3b8; font-size: 7pt; }
+    .pdf-foot { display: flex; justify-content: space-between; margin-top: 2mm; padding: 0 1mm; color: #94a3b8; font-size: 5.5pt; }
+    @media screen {
+      body { background: #d9dee8; padding: 12px; }
+      .pdf-page { width: 297mm; min-height: 210mm; margin: 0 auto; padding: 7mm; background: #fff; box-shadow: 0 8px 30px rgba(0,0,0,.18); }
+    }
+    @media print {
+      .pdf-page { height: 196mm; min-height: 196mm; overflow: hidden; }
+    }
+  </style>
+</head>
+<body>
+  <main class="pdf-page">
+    <header class="pdf-head">
+      <div><div class="pdf-brand">ATLAS</div><div class="pdf-sub">Viewer Schedule · 공개 일정 요약</div></div>
+      <div class="pdf-range">${escapeHtml(formatPdfDateRange())}<br>Türkiye 2026</div>
+    </header>
+    <div class="pdf-grid">${dayCards}</div>
+    <footer class="pdf-foot"><span>Viewer 공개 정보만 포함되어 있어요.</span><span>예약번호 · 개인 메모 · 가계부 제외</span></footer>
+  </main>
+</body>
+</html>`;
+  }
+
+  function renderViewerPdfEvent(event) {
+    const meta = formatViewerPublicMeta(event);
+    return `
+      <div class="pdf-event">
+        <div class="pdf-time">${escapeHtml(event.time || "--:--")}${event.endTime ? `<small>~ ${escapeHtml(event.endTime)}</small>` : ""}</div>
+        <div>
+          <div class="pdf-title">${escapeHtml(iconForType(event.type))} ${escapeHtml(event.title)}</div>
+          ${meta ? `<div class="pdf-meta">${escapeHtml(meta)}</div>` : ""}
+          <span class="pdf-type">${escapeHtml(labelForType(event.type))}</span>
+        </div>
+      </div>`;
+  }
+
+  function formatViewerPublicMeta(event) {
+    const items = [];
+    const type = String(event.type || "").toLowerCase();
+    const details = event.details || {};
+    const operator = details.airline || details.operator || details.provider || "";
+    const transportName = [operator, details.number].filter(Boolean).join(" ");
+    const route = [details.departurePlace, details.arrivalPlace].filter(Boolean).join(" → ");
+
+    if (["flight", "train", "bus"].includes(type)) {
+      if (transportName) items.push(transportName);
+      if (route) items.push(route);
+      else if (event.location) items.push(event.location);
+    } else if (type === "hotel") {
+      if (details.hotelName) items.push(details.hotelName);
+      if (event.location && event.location !== details.hotelName) items.push(event.location);
+    } else if (type === "activity") {
+      if (details.provider) items.push(details.provider);
+      if (details.meetingPoint) items.push(`미팅 ${details.meetingPoint}`);
+      else if (event.location) items.push(event.location);
+    } else if (event.location) {
+      items.push(event.location);
+    }
+
+    if (event.isMultiDay && event.multiDayCount > 1) {
+      items.push(`${event.multiDayIndex + 1}/${event.multiDayCount}일차`);
+    }
+
+    return items.join(" · ");
+  }
+
+  function formatPdfDateRange() {
+    return `${START_DATE.replaceAll("-", ".")} - ${END_DATE.replaceAll("-", ".")}`;
+  }
+
   function renderError(error) {
     const carousel = document.getElementById("schedule-carousel");
     carousel.innerHTML = `
@@ -631,7 +793,8 @@ function toDateKey(date) {
     openEdit,
     closeEdit,
     saveEdit,
-    remove
+    remove,
+    exportViewerPdf
   };
 })();
 
