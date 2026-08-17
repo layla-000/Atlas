@@ -640,7 +640,11 @@ async function refreshWeatherStatusItem() {
       .replaceAll("'", "&#039;");
   }
 
-  return { initialize, updateCurrentLocation };
+  function getCurrentTripId() {
+    return STATE.tripId || window.AtlasConfig?.atlas?.defaultTripId || "trip_turkiye_2026";
+  }
+
+  return { initialize, updateCurrentLocation, getCurrentTripId };
 })();
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -649,8 +653,8 @@ window.addEventListener("DOMContentLoaded", () => {
 const ATLAS_SCHEDULE_TYPES = [
   { value: "flight", label: "Flight", icon: "✈️" },
   { value: "hotel", label: "Hotel", icon: "🏨" },
-  { value: "train", label: "Train", icon: "🚆" },
-  { value: "bus", label: "Bus", icon: "🚌" },
+  { value: "transport", label: "Train/Bus", icon: "🚆" },
+  { value: "restaurant", label: "Restaurant", icon: "🍴" },
   { value: "activity", label: "Activity", icon: "🎈" },
   { value: "etc", label: "Etc", icon: "✨" }
 ];
@@ -847,7 +851,7 @@ function renderAtlasScheduleFields(type) {
   const commonTop = `
     <label>
       Trip ID
-      <input name="tripId" value="trip_turkiye_2026" required />
+      <input name="tripId" value="${escapeHtml(Atlas.getCurrentTripId())}" required />
     </label>
 
     <label>
@@ -914,16 +918,16 @@ function renderAtlasScheduleFields(type) {
     `;
   }
 
-  if (type === "train") {
+  if (type === "transport") {
     return `
       ${commonTop}
       <div class="atlas-form-row">
-        <label>Operator<input name="operator" placeholder="TCDD" /></label>
-        <label>Train No.<input name="number" placeholder="optional" /></label>
+        <label>Operator<input name="operator" placeholder="예: TCDD, Pamukkale" /></label>
+        <label>Train/Bus No.<input name="number" placeholder="optional" /></label>
       </div>
       <div class="atlas-form-row">
-        <label>Departure Station<input name="departurePlace" /></label>
-        <label>Arrival Station<input name="arrivalPlace" /></label>
+        <label>Departure<input name="departurePlace" placeholder="Station / Stop" /></label>
+        <label>Arrival<input name="arrivalPlace" placeholder="Station / Stop" /></label>
       </div>
       <div class="atlas-form-row">
         <label>Departure Time<input name="startAt" type="datetime-local" step="300" required /></label>
@@ -934,23 +938,32 @@ function renderAtlasScheduleFields(type) {
     `;
   }
 
-  if (type === "bus") {
+  if (type === "restaurant") {
     return `
-      ${commonTop}
-      <div class="atlas-form-row">
-        <label>Operator<input name="operator" placeholder="Pamukkale" /></label>
-        <label>Bus No.<input name="number" placeholder="optional" /></label>
-      </div>
-      <div class="atlas-form-row">
-        <label>Departure Stop<input name="departurePlace" /></label>
-        <label>Arrival Stop<input name="arrivalPlace" /></label>
-      </div>
-      <div class="atlas-form-row">
-        <label>Departure Time<input name="startAt" type="datetime-local" step="300" required /></label>
-        <label>Arrival Time<input name="endAt" type="datetime-local" step="300" /></label>
-      </div>
-      ${confirmationNumberField}
-      ${commonBottom({ showLocation: false })}
+      <label>
+        Trip ID
+        <input name="tripId" value="${escapeHtml(Atlas.getCurrentTripId())}" required />
+      </label>
+      <label>
+        Restaurant Name
+        <input name="restaurantName" placeholder="예: Mikla" required />
+      </label>
+      <label>
+        Reservation Time
+        <input name="startAt" type="datetime-local" step="300" required />
+      </label>
+      <label>
+        Reservation Platform
+        <input name="reservationPlatform" placeholder="예: OpenTable, Google, 전화 예약" />
+      </label>
+      <label>
+        Restaurant Location
+        <input name="location" placeholder="주소 또는 지역" />
+      </label>
+      <label>
+        Notes
+        <textarea name="notes" rows="3" placeholder="메모를 적어 주세요."></textarea>
+      </label>
     `;
   }
 
@@ -986,7 +999,7 @@ function collectAtlasSchedulePayload(form) {
     type: "schedule",
     scheduleType: atlasCurrentScheduleType,
     tripId: raw.tripId,
-    title: raw.title,
+    title: raw.restaurantName || raw.title,
     startAt: raw.startAt,
     endAt: raw.endAt,
     location: raw.location || "",
@@ -1002,7 +1015,9 @@ function collectAtlasSchedulePayload(form) {
       reservationNumber: raw.reservationNumber || "",
       departurePlace: raw.departurePlace || "",
       arrivalPlace: raw.arrivalPlace || "",
-      meetingPoint: raw.meetingPoint || ""
+      meetingPoint: raw.meetingPoint || "",
+      restaurantName: raw.restaurantName || "",
+      reservationPlatform: raw.reservationPlatform || ""
     }
   };
 }

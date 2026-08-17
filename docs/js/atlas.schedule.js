@@ -8,8 +8,8 @@ const TRIP_ID = () => {
 const ADD_SCHEDULE_TYPES = [
   { value: "flight", label: "Flight", icon: "✈️" },
   { value: "hotel", label: "Hotel", icon: "🏨" },
-  { value: "train", label: "Train", icon: "🚆" },
-  { value: "bus", label: "Bus", icon: "🚌" },
+  { value: "transport", label: "Train/Bus", icon: "🚆" },
+  { value: "restaurant", label: "Restaurant", icon: "🍴" },
   { value: "activity", label: "Activity", icon: "🎈" },
   { value: "etc", label: "Etc", icon: "✨" }
 ];
@@ -259,13 +259,17 @@ async function fetchScheduleFromAtlasMemory() {
     const arrival = details.arrivalPlace || "";
     const route = [departure, arrival].filter(Boolean).join(" → ");
 
-    if (["flight", "train", "bus"].includes(type)) {
+    if (["flight", "train", "bus", "transport"].includes(type)) {
       if (transportName) items.push(transportName);
       if (route) items.push(route);
       else if (event.location) items.push(event.location);
     } else if (type === "hotel") {
       if (details.hotelName) items.push(details.hotelName);
       if (event.location && event.location !== details.hotelName) items.push(event.location);
+    } else if (type === "restaurant" || type === "food") {
+      if (details.restaurantName && details.restaurantName !== event.title) items.push(details.restaurantName);
+      if (details.reservationPlatform) items.push(details.reservationPlatform);
+      if (event.location) items.push(event.location);
     } else if (type === "activity") {
       if (details.provider) items.push(details.provider);
       if (details.meetingPoint) items.push(`미팅 ${details.meetingPoint}`);
@@ -501,14 +505,21 @@ async function fetchScheduleFromAtlasMemory() {
       <label>Reservation No.<input name="reservationNumber" placeholder="optional"></label>
       <label>Location<input name="location" placeholder="주소 또는 지역"></label>${notesField}`;
 
-    if (type === "train" || type === "bus") {
-      const isTrain = type === "train";
+    if (type === "transport") {
       return `${commonTop}
-        <div class="schedule-add-row"><label>Operator<input name="operator" placeholder="${isTrain ? 'TCDD' : 'Pamukkale'}"></label><label>${isTrain ? 'Train' : 'Bus'} No.<input name="number" placeholder="optional"></label></div>
-        <div class="schedule-add-row"><label>Departure ${isTrain ? 'Station' : 'Stop'}<input name="departurePlace"></label><label>Arrival ${isTrain ? 'Station' : 'Stop'}<input name="arrivalPlace"></label></div>
+        <div class="schedule-add-row"><label>Operator<input name="operator" placeholder="예: TCDD, Pamukkale"></label><label>Train/Bus No.<input name="number" placeholder="optional"></label></div>
+        <div class="schedule-add-row"><label>Departure<input name="departurePlace" placeholder="Station / Stop"></label><label>Arrival<input name="arrivalPlace" placeholder="Station / Stop"></label></div>
         <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label><label>Arrival Time<input name="endAt" type="datetime-local" step="300"></label></div>
         ${confirmationField}${notesField}`;
     }
+
+    if (type === "restaurant") return `
+      <input type="hidden" name="tripId" value="${TRIP_ID()}">
+      <label>Restaurant Name<input name="restaurantName" placeholder="레스토랑 이름" required></label>
+      <label>Reservation Time<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label>
+      <label>Reservation Platform<input name="reservationPlatform" placeholder="예: OpenTable, Google, 전화 예약"></label>
+      <label>Restaurant Location<input name="location" placeholder="주소 또는 지역"></label>
+      ${notesField}`;
 
     if (type === "activity") return `${commonTop}
       <label>Provider<input name="provider" placeholder="optional"></label>
@@ -527,7 +538,7 @@ async function fetchScheduleFromAtlasMemory() {
       type: "schedule",
       scheduleType: STATE.currentAddType,
       tripId: raw.tripId || TRIP_ID(),
-      title: raw.title,
+      title: raw.restaurantName || raw.title,
       startAt: raw.startAt,
       endAt: raw.endAt,
       location: raw.location || "",
@@ -543,7 +554,9 @@ async function fetchScheduleFromAtlasMemory() {
         reservationNumber: raw.reservationNumber || "",
         departurePlace: raw.departurePlace || "",
         arrivalPlace: raw.arrivalPlace || "",
-        meetingPoint: raw.meetingPoint || ""
+        meetingPoint: raw.meetingPoint || "",
+        restaurantName: raw.restaurantName || "",
+        reservationPlatform: raw.reservationPlatform || ""
       }
     };
   }
@@ -718,13 +731,17 @@ async function fetchScheduleFromAtlasMemory() {
     const transportName = [operator, details.number].filter(Boolean).join(" ");
     const route = [details.departurePlace, details.arrivalPlace].filter(Boolean).join(" → ");
 
-    if (["flight", "train", "bus"].includes(type)) {
+    if (["flight", "train", "bus", "transport"].includes(type)) {
       if (transportName) items.push(transportName);
       if (route) items.push(route);
       else if (event.location) items.push(event.location);
     } else if (type === "hotel") {
       if (details.hotelName) items.push(details.hotelName);
       if (event.location && event.location !== details.hotelName) items.push(event.location);
+    } else if (type === "restaurant" || type === "food") {
+      if (details.restaurantName && details.restaurantName !== event.title) items.push(details.restaurantName);
+      if (details.reservationPlatform) items.push(details.reservationPlatform);
+      if (event.location) items.push(event.location);
     } else if (type === "activity") {
       if (details.provider) items.push(details.provider);
       if (details.meetingPoint) items.push(`미팅 ${details.meetingPoint}`);
@@ -782,7 +799,7 @@ async function fetchScheduleFromAtlasMemory() {
           <input type="hidden" name="id" value="${escapeHtml(event.id)}">
           <label>종류
             <select name="scheduleType">
-              ${["flight","hotel","train","bus","activity","food","etc"].map(type => `<option value="${type}" ${type === String(event.type).toLowerCase() ? "selected" : ""}>${labelForType(type)}</option>`).join("")}
+              ${["flight","hotel","transport","restaurant","activity","etc"].map(type => `<option value="${type}" ${type === String(event.type).toLowerCase() ? "selected" : ""}>${labelForType(type)}</option>`).join("")}
             </select>
           </label>
           <label>제목<input name="title" required value="${escapeHtml(event.title)}"></label>
@@ -1070,7 +1087,7 @@ function buildEmptyDays() {
       hotel: "🏨",
       train: "🚆",
       bus: "🚌",
-      transport: "🚌",
+      transport: "🚆",
       activity: "📷",
       food: "🍴",
       restaurant: "🍴",
@@ -1084,10 +1101,10 @@ function buildEmptyDays() {
       hotel: "숙소",
       train: "기차",
       bus: "버스",
-      transport: "교통",
+      transport: "Train/Bus",
       activity: "관광",
       food: "식사",
-      restaurant: "식사",
+      restaurant: "Restaurant",
       etc: "일정"
     }[String(type || "").toLowerCase()] || "일정";
   }
