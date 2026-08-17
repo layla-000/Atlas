@@ -718,6 +718,53 @@ function openAtlasScheduleForm(scheduleType) {
   `;
 
   document.body.appendChild(modal);
+  setupAtlasScheduleDateTimeRules(modal);
+}
+
+function setupAtlasScheduleDateTimeRules(container) {
+  const startInput = container?.querySelector('input[name="startAt"]');
+  const endInput = container?.querySelector('input[name="endAt"]');
+  if (!startInput) return;
+
+  [startInput, endInput].filter(Boolean).forEach((input) => {
+    input.step = "300";
+    input.addEventListener("change", () => {
+      input.value = normalizeAtlasFiveMinuteValue(input.value);
+      syncAtlasScheduleEndDate(startInput, endInput);
+    });
+  });
+
+  syncAtlasScheduleEndDate(startInput, endInput);
+}
+
+function normalizeAtlasFiveMinuteValue(value) {
+  if (!value) return "";
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) return value;
+  const [, year, month, day, hour, minute] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), 0, 0);
+  date.setMinutes(Math.round(date.getMinutes() / 5) * 5, 0, 0);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function syncAtlasScheduleEndDate(startInput, endInput) {
+  if (!startInput || !endInput || !startInput.value) return;
+  const startDate = startInput.value.slice(0, 10);
+  endInput.min = `${startDate}T00:00`;
+  if (endInput.value && endInput.value.slice(0, 10) < startDate) {
+    const endTime = endInput.value.slice(11, 16) || startInput.value.slice(11, 16) || "00:00";
+    endInput.value = `${startDate}T${endTime}`;
+  }
+}
+
+function normalizeAtlasScheduleFormDateTimes(form) {
+  const startInput = form?.querySelector('input[name="startAt"]');
+  const endInput = form?.querySelector('input[name="endAt"]');
+  if (!startInput) return;
+  startInput.value = normalizeAtlasFiveMinuteValue(startInput.value);
+  if (endInput) endInput.value = normalizeAtlasFiveMinuteValue(endInput.value);
+  syncAtlasScheduleEndDate(startInput, endInput);
 }
 
 function renderAtlasScheduleFields(type) {
@@ -770,8 +817,8 @@ function renderAtlasScheduleFields(type) {
         <label>Arrival<input name="arrivalPlace" placeholder="IST" /></label>
       </div>
       <div class="atlas-form-row">
-        <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
-        <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
+        <label>Departure Time<input name="startAt" type="datetime-local" step="300" required /></label>
+        <label>Arrival Time<input name="endAt" type="datetime-local" step="300" /></label>
       </div>
       ${confirmationNumberField}
       ${commonBottom({ showLocation: false })}
@@ -783,8 +830,8 @@ function renderAtlasScheduleFields(type) {
       ${commonTop}
       <label>Hotel Name<input name="hotelName" placeholder="Sultan Cave Suites" /></label>
       <div class="atlas-form-row">
-        <label>Check-in<input name="startAt" type="datetime-local" required /></label>
-        <label>Check-out<input name="endAt" type="datetime-local" required /></label>
+        <label>Check-in<input name="startAt" type="datetime-local" step="300" required /></label>
+        <label>Check-out<input name="endAt" type="datetime-local" step="300" required /></label>
       </div>
       <label>Reservation No.<input name="reservationNumber" placeholder="optional" /></label>
       ${commonBottom()}
@@ -803,8 +850,8 @@ function renderAtlasScheduleFields(type) {
         <label>Arrival Station<input name="arrivalPlace" /></label>
       </div>
       <div class="atlas-form-row">
-        <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
-        <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
+        <label>Departure Time<input name="startAt" type="datetime-local" step="300" required /></label>
+        <label>Arrival Time<input name="endAt" type="datetime-local" step="300" /></label>
       </div>
       ${confirmationNumberField}
       ${commonBottom({ showLocation: false })}
@@ -823,8 +870,8 @@ function renderAtlasScheduleFields(type) {
         <label>Arrival Stop<input name="arrivalPlace" /></label>
       </div>
       <div class="atlas-form-row">
-        <label>Departure Time<input name="startAt" type="datetime-local" required /></label>
-        <label>Arrival Time<input name="endAt" type="datetime-local" /></label>
+        <label>Departure Time<input name="startAt" type="datetime-local" step="300" required /></label>
+        <label>Arrival Time<input name="endAt" type="datetime-local" step="300" /></label>
       </div>
       ${confirmationNumberField}
       ${commonBottom({ showLocation: false })}
@@ -836,8 +883,8 @@ function renderAtlasScheduleFields(type) {
       ${commonTop}
       <label>Provider<input name="provider" placeholder="optional" /></label>
       <div class="atlas-form-row">
-        <label>Start Time<input name="startAt" type="datetime-local" required /></label>
-        <label>End Time<input name="endAt" type="datetime-local" /></label>
+        <label>Start Time<input name="startAt" type="datetime-local" step="300" required /></label>
+        <label>End Time<input name="endAt" type="datetime-local" step="300" /></label>
       </div>
       <label>Meeting Point<input name="meetingPoint" placeholder="optional" /></label>
       ${confirmationNumberField}
@@ -848,8 +895,8 @@ function renderAtlasScheduleFields(type) {
   return `
     ${commonTop}
     <div class="atlas-form-row">
-      <label>Start Time<input name="startAt" type="datetime-local" required /></label>
-      <label>End Time<input name="endAt" type="datetime-local" /></label>
+      <label>Start Time<input name="startAt" type="datetime-local" step="300" required /></label>
+      <label>End Time<input name="endAt" type="datetime-local" step="300" /></label>
     </div>
     ${commonBottom()}
   `;
@@ -888,6 +935,7 @@ async function submitAtlasScheduleForm(event) {
   event.preventDefault();
 
   const form = event.target;
+  normalizeAtlasScheduleFormDateTimes(form);
   const payload = collectAtlasSchedulePayload(form);
 
   try {

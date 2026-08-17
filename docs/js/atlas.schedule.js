@@ -355,6 +355,53 @@ async function fetchScheduleFromAtlasMemory() {
       </section>`;
     modal.addEventListener("click", (event) => { if (event.target === modal) closeAddModal(); });
     document.body.appendChild(modal);
+    setupScheduleDateTimeRules(modal);
+  }
+
+  function setupScheduleDateTimeRules(container) {
+    const startInput = container?.querySelector('input[name="startAt"]');
+    const endInput = container?.querySelector('input[name="endAt"]');
+    if (!startInput) return;
+
+    [startInput, endInput].filter(Boolean).forEach((input) => {
+      input.step = "300";
+      input.addEventListener("change", () => {
+        input.value = normalizeFiveMinuteValue(input.value);
+        syncScheduleEndDate(startInput, endInput);
+      });
+    });
+
+    syncScheduleEndDate(startInput, endInput);
+  }
+
+  function normalizeFiveMinuteValue(value) {
+    if (!value) return "";
+    const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!match) return value;
+    const [, year, month, day, hour, minute] = match;
+    const date = new Date(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), 0, 0);
+    date.setMinutes(Math.round(date.getMinutes() / 5) * 5, 0, 0);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function syncScheduleEndDate(startInput, endInput) {
+    if (!startInput || !endInput || !startInput.value) return;
+    const startDate = startInput.value.slice(0, 10);
+    endInput.min = `${startDate}T00:00`;
+    if (endInput.value && endInput.value.slice(0, 10) < startDate) {
+      const endTime = endInput.value.slice(11, 16) || startInput.value.slice(11, 16) || "00:00";
+      endInput.value = `${startDate}T${endTime}`;
+    }
+  }
+
+  function normalizeScheduleFormDateTimes(form) {
+    const startInput = form?.querySelector('input[name="startAt"]');
+    const endInput = form?.querySelector('input[name="endAt"]');
+    if (!startInput) return;
+    startInput.value = normalizeFiveMinuteValue(startInput.value);
+    if (endInput) endInput.value = normalizeFiveMinuteValue(endInput.value);
+    syncScheduleEndDate(startInput, endInput);
   }
 
   function renderAddFields(type) {
@@ -369,12 +416,12 @@ async function fetchScheduleFromAtlasMemory() {
     if (type === "flight") return `${commonTop}
       <div class="schedule-add-row"><label>Airline<input name="airline" placeholder="Turkish Airlines"></label><label>Flight No.<input name="number" placeholder="TK21"></label></div>
       <div class="schedule-add-row"><label>Departure<input name="departurePlace" placeholder="ICN"></label><label>Arrival<input name="arrivalPlace" placeholder="IST"></label></div>
-      <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>Arrival Time<input name="endAt" type="datetime-local"></label></div>
+      <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label><label>Arrival Time<input name="endAt" type="datetime-local" step="300"></label></div>
       ${confirmationField}${notesField}`;
 
     if (type === "hotel") return `${commonTop}
       <label>Hotel Name<input name="hotelName" placeholder="Sultan Cave Suites"></label>
-      <div class="schedule-add-row"><label>Check-in<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>Check-out<input name="endAt" type="datetime-local" required></label></div>
+      <div class="schedule-add-row"><label>Check-in<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label><label>Check-out<input name="endAt" type="datetime-local" step="300" required></label></div>
       <label>Reservation No.<input name="reservationNumber" placeholder="optional"></label>
       <label>Location<input name="location" placeholder="주소 또는 지역"></label>${notesField}`;
 
@@ -383,18 +430,18 @@ async function fetchScheduleFromAtlasMemory() {
       return `${commonTop}
         <div class="schedule-add-row"><label>Operator<input name="operator" placeholder="${isTrain ? 'TCDD' : 'Pamukkale'}"></label><label>${isTrain ? 'Train' : 'Bus'} No.<input name="number" placeholder="optional"></label></div>
         <div class="schedule-add-row"><label>Departure ${isTrain ? 'Station' : 'Stop'}<input name="departurePlace"></label><label>Arrival ${isTrain ? 'Station' : 'Stop'}<input name="arrivalPlace"></label></div>
-        <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>Arrival Time<input name="endAt" type="datetime-local"></label></div>
+        <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label><label>Arrival Time<input name="endAt" type="datetime-local" step="300"></label></div>
         ${confirmationField}${notesField}`;
     }
 
     if (type === "activity") return `${commonTop}
       <label>Provider<input name="provider" placeholder="optional"></label>
-      <div class="schedule-add-row"><label>Start Time<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>End Time<input name="endAt" type="datetime-local"></label></div>
+      <div class="schedule-add-row"><label>Start Time<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label><label>End Time<input name="endAt" type="datetime-local" step="300"></label></div>
       <label>Meeting Point<input name="meetingPoint" placeholder="optional"></label>
       ${confirmationField}${notesField}`;
 
     return `${commonTop}
-      <div class="schedule-add-row"><label>Start Time<input name="startAt" type="datetime-local" value="${startValue}" required></label><label>End Time<input name="endAt" type="datetime-local"></label></div>
+      <div class="schedule-add-row"><label>Start Time<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label><label>End Time<input name="endAt" type="datetime-local" step="300"></label></div>
       <label>Location<input name="location" placeholder="장소"></label>${notesField}`;
   }
 
@@ -429,6 +476,7 @@ async function fetchScheduleFromAtlasMemory() {
     event.preventDefault();
     if (STATE.role !== "owner") return;
     const form = event.currentTarget;
+    normalizeScheduleFormDateTimes(form);
     const button = form.querySelector(".schedule-add-primary");
     const payload = collectAddPayload(form);
 
@@ -663,8 +711,8 @@ async function fetchScheduleFromAtlasMemory() {
           </label>
           <label>제목<input name="title" required value="${escapeHtml(event.title)}"></label>
           <div class="schedule-modal-grid">
-            <label>시작<input name="startAt" type="datetime-local" required value="${escapeHtml(toDateTimeLocal(event.startAt))}"></label>
-            <label>종료<input name="endAt" type="datetime-local" value="${escapeHtml(toDateTimeLocal(event.endAt))}"></label>
+            <label>시작<input name="startAt" type="datetime-local" step="300" required value="${escapeHtml(toDateTimeLocal(event.startAt))}"></label>
+            <label>종료<input name="endAt" type="datetime-local" step="300" value="${escapeHtml(toDateTimeLocal(event.endAt))}"></label>
           </div>
           <label>장소<input name="location" value="${escapeHtml(event.location || "")}"></label>
           <label>예약번호<input name="confirmationNumber" value="${escapeHtml(event.confirmationNumber || "")}"></label>
@@ -677,6 +725,7 @@ async function fetchScheduleFromAtlasMemory() {
       </section>`;
     modal.addEventListener("click", (e) => { if (e.target === modal) closeEdit(); });
     document.body.appendChild(modal);
+    setupScheduleDateTimeRules(modal);
   }
 
   function closeEdit() {
@@ -687,6 +736,7 @@ async function fetchScheduleFromAtlasMemory() {
     domEvent.preventDefault();
     if (STATE.role !== "owner") return;
     const form = domEvent.currentTarget;
+    normalizeScheduleFormDateTimes(form);
     const data = Object.fromEntries(new FormData(form).entries());
     const original = findEventById(data.id);
     if (!original) return alert("수정할 일정을 찾지 못했어요.");
@@ -789,12 +839,18 @@ async function fetchScheduleFromAtlasMemory() {
     const nextEndAt = window.prompt("종료 시간을 수정해요. 비워두어도 괜찮아요. 예: 2026-09-24T11:00", event.endAt || "");
     if (nextEndAt === null) return;
 
+    const normalizedStartAt = normalizeFiveMinuteValue(nextStartAt.trim());
+    let normalizedEndAt = normalizeFiveMinuteValue(nextEndAt.trim());
+    if (normalizedEndAt && normalizedStartAt && normalizedEndAt.slice(0, 10) < normalizedStartAt.slice(0, 10)) {
+      normalizedEndAt = `${normalizedStartAt.slice(0, 10)}T${normalizedEndAt.slice(11, 16) || normalizedStartAt.slice(11, 16)}`;
+    }
+
     try {
       const result = await AtlasAPI.updateScheduleTime({
         id: event.id,
         source: event.source,
-        startAt: nextStartAt.trim(),
-        endAt: nextEndAt.trim()
+        startAt: normalizedStartAt,
+        endAt: normalizedEndAt
       });
 
       if (!result || result.success === false || result.ok === false) {
