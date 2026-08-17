@@ -365,13 +365,83 @@ async function fetchScheduleFromAtlasMemory() {
 
     [startInput, endInput].filter(Boolean).forEach((input) => {
       input.step = "300";
-      input.addEventListener("change", () => {
-        input.value = normalizeFiveMinuteValue(input.value);
-        syncScheduleEndDate(startInput, endInput);
-      });
+      installFiveMinutePicker(input, () => syncScheduleEndDate(startInput, endInput));
     });
 
     syncScheduleEndDate(startInput, endInput);
+  }
+
+  function installFiveMinutePicker(input, onChange) {
+    if (!input || input.dataset.atlasFiveMinutePicker === "1") return;
+    input.dataset.atlasFiveMinutePicker = "1";
+    input.value = normalizeFiveMinuteValue(input.value);
+
+    const wasRequired = input.required;
+    input.required = false;
+    input.style.display = "none";
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "schedule-five-minute-datetime";
+    wrapper.style.cssText = "display:grid;grid-template-columns:minmax(0,1fr) 72px 72px;gap:6px;width:100%;margin-top:6px;";
+
+    const dateInput = document.createElement("input");
+    dateInput.type = "date";
+    dateInput.required = wasRequired;
+    dateInput.setAttribute("aria-label", "Date");
+
+    const hourSelect = document.createElement("select");
+    hourSelect.setAttribute("aria-label", "Hour");
+    hourSelect.innerHTML = Array.from({ length: 24 }, (_, hour) => {
+      const value = String(hour).padStart(2, "0");
+      return `<option value="${value}">${value}</option>`;
+    }).join("");
+
+    const minuteSelect = document.createElement("select");
+    minuteSelect.setAttribute("aria-label", "Minute");
+    minuteSelect.innerHTML = Array.from({ length: 12 }, (_, index) => {
+      const value = String(index * 5).padStart(2, "0");
+      return `<option value="${value}">${value}</option>`;
+    }).join("");
+
+    [dateInput, hourSelect, minuteSelect].forEach((control) => {
+      control.style.width = "100%";
+      control.style.minWidth = "0";
+    });
+
+    wrapper.append(dateInput, hourSelect, minuteSelect);
+    input.insertAdjacentElement("afterend", wrapper);
+    input._atlasDateInput = dateInput;
+    input._atlasHourSelect = hourSelect;
+    input._atlasMinuteSelect = minuteSelect;
+
+    const syncVisibleFromValue = () => {
+      const value = normalizeFiveMinuteValue(input.value);
+      input.value = value;
+      if (!value) {
+        dateInput.value = "";
+        hourSelect.value = "00";
+        minuteSelect.value = "00";
+        return;
+      }
+      dateInput.value = value.slice(0, 10);
+      hourSelect.value = value.slice(11, 13) || "00";
+      minuteSelect.value = value.slice(14, 16) || "00";
+    };
+
+    const syncValueFromVisible = () => {
+      if (!dateInput.value) {
+        input.value = "";
+      } else {
+        input.value = `${dateInput.value}T${hourSelect.value}:${minuteSelect.value}`;
+      }
+      if (typeof onChange === "function") onChange();
+    };
+
+    input._atlasSyncPicker = syncVisibleFromValue;
+    dateInput.addEventListener("change", syncValueFromVisible);
+    hourSelect.addEventListener("change", syncValueFromVisible);
+    minuteSelect.addEventListener("change", syncValueFromVisible);
+    syncVisibleFromValue();
   }
 
   function normalizeFiveMinuteValue(value) {
@@ -389,9 +459,11 @@ async function fetchScheduleFromAtlasMemory() {
     if (!startInput || !endInput || !startInput.value) return;
     const startDate = startInput.value.slice(0, 10);
     endInput.min = `${startDate}T00:00`;
+    if (endInput._atlasDateInput) endInput._atlasDateInput.min = startDate;
     if (endInput.value && endInput.value.slice(0, 10) < startDate) {
       const endTime = endInput.value.slice(11, 16) || startInput.value.slice(11, 16) || "00:00";
       endInput.value = `${startDate}T${endTime}`;
+      endInput._atlasSyncPicker?.();
     }
   }
 
