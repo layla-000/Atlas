@@ -745,7 +745,7 @@ function installAtlasFiveMinutePicker(input, onChange) {
 
   const wrapper = document.createElement("div");
   wrapper.className = "atlas-five-minute-datetime";
-  wrapper.style.cssText = "display:grid;grid-template-columns:minmax(0,1fr) 72px 72px;gap:6px;width:100%;margin-top:6px;";
+  wrapper.style.cssText = "display:grid;grid-template-columns:minmax(142px,1fr) 54px 54px;gap:4px;width:100%;margin-top:6px;";
 
   const dateInput = document.createElement("input");
   dateInput.type = "date";
@@ -769,6 +769,10 @@ function installAtlasFiveMinutePicker(input, onChange) {
   [dateInput, hourSelect, minuteSelect].forEach((control) => {
     control.style.width = "100%";
     control.style.minWidth = "0";
+  });
+  [hourSelect, minuteSelect].forEach((control) => {
+    control.style.paddingLeft = "6px";
+    control.style.paddingRight = "4px";
   });
 
   wrapper.append(dateInput, hourSelect, minuteSelect);
