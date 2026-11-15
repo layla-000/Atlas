@@ -234,6 +234,10 @@ insert into public.atlas_trips (id,name,start_date,end_date,time_zone,home_time_
 values ('trip_turkiye_2026','Türkiye 2026','2026-09-23','2026-10-02','Europe/Istanbul','Asia/Seoul')
 on conflict (id) do update set name=excluded.name,start_date=excluded.start_date,end_date=excluded.end_date,time_zone=excluded.time_zone,home_time_zone=excluded.home_time_zone;
 
+insert into public.atlas_trips (id,name,start_date,end_date,time_zone,home_time_zone)
+values ('trip_beijing_2026','2026 Beijing','2026-12-28','2027-01-03','Asia/Shanghai','Asia/Seoul')
+on conflict (id) do update set name=excluded.name,start_date=excluded.start_date,end_date=excluded.end_date,time_zone=excluded.time_zone,home_time_zone=excluded.home_time_zone;
+
 -- IMPORTANT: after running this file, add your Layla Hub user as Owner.
 -- Replace YOUR_OWNER_UUID with Authentication > Users > your UUID, then run:
 -- insert into public.atlas_trip_members (trip_id,user_id,role)

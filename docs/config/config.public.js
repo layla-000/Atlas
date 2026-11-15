@@ -11,5 +11,6 @@ window.AtlasConfig.supabase = {
 
 window.AtlasConfig.atlas = {
   defaultTripId: "trip_turkiye_2026",
+  travelTripIds: ["trip_turkiye_2026", "trip_beijing_2026"],
   homeTimeZone: "Asia/Seoul"
 };

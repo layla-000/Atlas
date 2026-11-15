@@ -77,7 +77,8 @@ const Atlas = (() => {
   }
 
   function isTravelTrip() {
-    return STATE.tripId === "trip_turkiye_2026";
+    const travelTripIds = window.AtlasConfig?.atlas?.travelTripIds || ["trip_turkiye_2026"];
+    return travelTripIds.includes(STATE.tripId);
   }
 
   function renderHeader() {

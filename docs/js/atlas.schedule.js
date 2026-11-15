@@ -103,8 +103,9 @@ async function fetchScheduleFromAtlasMemory() {
     return dates.map((date, index) => {
       const isFirstDay = index === 0;
       const isLastDay = date === endDate;
-      const startTime = event.time || extractTime(start);
-      const endTime = extractTime(end);
+      const hasConfirmedTime = event.details?.timeConfirmed !== false;
+      const startTime = hasConfirmedTime ? (event.time || extractTime(start)) : "";
+      const endTime = hasConfirmedTime ? extractTime(end) : "";
 
       return {
       id: originalId,
