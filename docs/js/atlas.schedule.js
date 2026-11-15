@@ -911,7 +911,7 @@ async function fetchScheduleFromAtlasMemory() {
           meetingPoint: data.meetingPoint || "",
           restaurantName: data.restaurantName || "",
           reservationPlatform: data.reservationPlatform || "",
-          ...(original.details?.timeConfirmed === false ? { timeConfirmed: false } : {})
+          timeConfirmed: true
         }
       });
       closeEdit();
