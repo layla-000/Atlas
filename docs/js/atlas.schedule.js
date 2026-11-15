@@ -500,8 +500,9 @@ async function fetchScheduleFromAtlasMemory() {
       <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label><label>Arrival Time<input name="endAt" type="datetime-local" step="300"></label></div>
       ${confirmationField}${notesField}`;
 
-    if (type === "hotel") return `${commonTop}
-      <label>Hotel Name<input name="hotelName" placeholder="Sultan Cave Suites"></label>
+    if (type === "hotel") return `
+      <input type="hidden" name="tripId" value="${TRIP_ID()}">
+      <label>Hotel Name<input name="hotelName" placeholder="Sultan Cave Suites" required></label>
       <div class="schedule-add-row"><label>Check-in<input name="startAt" type="datetime-local" step="300" value="${startValue}" required></label><label>Check-out<input name="endAt" type="datetime-local" step="300" required></label></div>
       <label>Reservation No.<input name="reservationNumber" placeholder="optional"></label>
       <label>Location<input name="location" placeholder="주소 또는 지역"></label>${notesField}`;
@@ -539,7 +540,7 @@ async function fetchScheduleFromAtlasMemory() {
       type: "schedule",
       scheduleType: STATE.currentAddType,
       tripId: raw.tripId || TRIP_ID(),
-      title: raw.restaurantName || raw.title,
+      title: raw.restaurantName || raw.hotelName || raw.title,
       startAt: raw.startAt,
       endAt: raw.endAt,
       location: raw.location || "",
@@ -782,6 +783,61 @@ async function fetchScheduleFromAtlasMemory() {
     render();
   }
 
+  function renderEditFields(event, type) {
+    const details = event.details || {};
+    const value = (name, fallback = "") => escapeHtml(details[name] || fallback || "");
+    const startAt = escapeHtml(toDateTimeLocal(event.startAt));
+    const endAt = escapeHtml(toDateTimeLocal(event.endAt));
+    const notes = escapeHtml(event.notes || "");
+    const confirmation = escapeHtml(event.confirmationNumber || details.confirmationNumber || details.reservationNumber || "");
+    const commonTop = `<label>Title<input name="title" required value="${escapeHtml(event.title || "")}"></label>`;
+    const confirmationField = `<label>Confirmation Number<input name="confirmationNumber" required value="${confirmation}"></label>`;
+    const notesField = `<label>Notes<textarea name="notes" rows="3">${notes}</textarea></label>`;
+
+    if (type === "flight") return `${commonTop}
+      <div class="schedule-add-row"><label>Airline<input name="airline" value="${value("airline")}"></label><label>Flight No.<input name="number" value="${value("number")}"></label></div>
+      <div class="schedule-add-row"><label>Departure<input name="departurePlace" value="${value("departurePlace")}"></label><label>Arrival<input name="arrivalPlace" value="${value("arrivalPlace")}"></label></div>
+      <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" step="300" required value="${startAt}"></label><label>Arrival Time<input name="endAt" type="datetime-local" step="300" value="${endAt}"></label></div>
+      ${confirmationField}${notesField}`;
+
+    if (type === "hotel") return `
+      <label>Hotel Name<input name="hotelName" required value="${value("hotelName", event.title)}"></label>
+      <div class="schedule-add-row"><label>Check-in<input name="startAt" type="datetime-local" step="300" required value="${startAt}"></label><label>Check-out<input name="endAt" type="datetime-local" step="300" required value="${endAt}"></label></div>
+      <label>Reservation No.<input name="reservationNumber" value="${confirmation}"></label>
+      <label>Location<input name="location" value="${escapeHtml(event.location || "")}"></label>${notesField}`;
+
+    if (type === "transport") return `${commonTop}
+      <div class="schedule-add-row"><label>Operator<input name="operator" value="${value("operator")}"></label><label>Train/Bus No.<input name="number" value="${value("number")}"></label></div>
+      <div class="schedule-add-row"><label>Departure<input name="departurePlace" value="${value("departurePlace")}"></label><label>Arrival<input name="arrivalPlace" value="${value("arrivalPlace")}"></label></div>
+      <div class="schedule-add-row"><label>Departure Time<input name="startAt" type="datetime-local" step="300" required value="${startAt}"></label><label>Arrival Time<input name="endAt" type="datetime-local" step="300" value="${endAt}"></label></div>
+      ${confirmationField}${notesField}`;
+
+    if (type === "restaurant") return `
+      <label>Restaurant Name<input name="restaurantName" required value="${value("restaurantName", event.title)}"></label>
+      <label>Reservation Time<input name="startAt" type="datetime-local" step="300" required value="${startAt}"></label>
+      <label>Reservation Platform<input name="reservationPlatform" value="${value("reservationPlatform")}"></label>
+      <label>Restaurant Location<input name="location" value="${escapeHtml(event.location || "")}"></label>${notesField}`;
+
+    if (type === "activity") return `${commonTop}
+      <label>Provider<input name="provider" value="${value("provider")}"></label>
+      <div class="schedule-add-row"><label>Start Time<input name="startAt" type="datetime-local" step="300" required value="${startAt}"></label><label>End Time<input name="endAt" type="datetime-local" step="300" value="${endAt}"></label></div>
+      <label>Meeting Point<input name="meetingPoint" value="${value("meetingPoint")}"></label>
+      ${confirmationField}${notesField}`;
+
+    return `${commonTop}
+      <div class="schedule-add-row"><label>Start Time<input name="startAt" type="datetime-local" step="300" required value="${startAt}"></label><label>End Time<input name="endAt" type="datetime-local" step="300" value="${endAt}"></label></div>
+      <label>Location<input name="location" value="${escapeHtml(event.location || "")}"></label>${notesField}`;
+  }
+
+  function changeEditType(type) {
+    const form = document.getElementById("schedule-edit-form");
+    const event = findEventById(form?.elements?.id?.value);
+    const fields = document.getElementById("schedule-edit-fields");
+    if (!event || !fields) return;
+    fields.innerHTML = renderEditFields(event, type);
+    setupScheduleDateTimeRules(fields);
+  }
+
   function openEdit(eventId) {
     const event = findEventById(eventId);
     if (!event || STATE.role !== "owner") return;
@@ -799,18 +855,11 @@ async function fetchScheduleFromAtlasMemory() {
         <form id="schedule-edit-form" onsubmit="AtlasSchedule.saveEdit(event)">
           <input type="hidden" name="id" value="${escapeHtml(event.id)}">
           <label>종류
-            <select name="scheduleType">
+            <select name="scheduleType" onchange="AtlasSchedule.changeEditType(this.value)">
               ${["flight","hotel","transport","restaurant","activity","etc"].map(type => `<option value="${type}" ${type === String(event.type).toLowerCase() ? "selected" : ""}>${labelForType(type)}</option>`).join("")}
             </select>
           </label>
-          <label>제목<input name="title" required value="${escapeHtml(event.title)}"></label>
-          <div class="schedule-modal-grid">
-            <label>시작<input name="startAt" type="datetime-local" step="300" required value="${escapeHtml(toDateTimeLocal(event.startAt))}"></label>
-            <label>종료<input name="endAt" type="datetime-local" step="300" value="${escapeHtml(toDateTimeLocal(event.endAt))}"></label>
-          </div>
-          <label>장소<input name="location" value="${escapeHtml(event.location || "")}"></label>
-          <label>예약번호<input name="confirmationNumber" value="${escapeHtml(event.confirmationNumber || "")}"></label>
-          <label>메모<textarea name="notes" rows="4">${escapeHtml(event.notes || "")}</textarea></label>
+          <div id="schedule-edit-fields">${renderEditFields(event, String(event.type).toLowerCase())}</div>
           <div class="schedule-modal-actions">
             <button type="button" class="schedule-secondary-btn" onclick="AtlasSchedule.closeEdit()">취소</button>
             <button type="submit" class="schedule-primary-btn">저장</button>
@@ -843,13 +892,27 @@ async function fetchScheduleFromAtlasMemory() {
         id: data.id,
         tripId: TRIP_ID(),
         scheduleType: data.scheduleType,
-        title: data.title.trim(),
+        title: String(data.restaurantName || data.hotelName || data.title || "일정").trim(),
         startAt: data.startAt,
         endAt: data.endAt,
-        location: data.location.trim(),
-        confirmationNumber: data.confirmationNumber.trim(),
-        notes: data.notes.trim(),
-        details: original.details || {}
+        location: String(data.location || "").trim(),
+        confirmationNumber: String(data.confirmationNumber || data.reservationNumber || "").trim(),
+        notes: String(data.notes || "").trim(),
+        details: {
+          confirmationNumber: String(data.confirmationNumber || data.reservationNumber || "").trim(),
+          airline: data.airline || "",
+          operator: data.operator || "",
+          provider: data.provider || "",
+          hotelName: data.hotelName || "",
+          number: data.number || "",
+          reservationNumber: data.reservationNumber || "",
+          departurePlace: data.departurePlace || "",
+          arrivalPlace: data.arrivalPlace || "",
+          meetingPoint: data.meetingPoint || "",
+          restaurantName: data.restaurantName || "",
+          reservationPlatform: data.reservationPlatform || "",
+          ...(original.details?.timeConfirmed === false ? { timeConfirmed: false } : {})
+        }
       });
       closeEdit();
       await reloadSchedule();
@@ -1157,6 +1220,7 @@ function toDateKey(date) {
     editNote,
     editTime,
     openEdit,
+    changeEditType,
     closeEdit,
     saveEdit,
     remove,
